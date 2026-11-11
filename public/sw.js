@@ -1,7 +1,29 @@
-/* Service worker do ZeloH — recebe notificações push e abre o link ao tocar. */
+/* Service worker do ZeloH — instalação como app, página offline e notificações push. */
 
-self.addEventListener("install", () => self.skipWaiting())
-self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()))
+const VERSAO = "zeloh-v2"
+const OFFLINE_URL = "/offline.html"
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(VERSAO).then((cache) => cache.addAll([OFFLINE_URL, "/icons/icon-192.png"])).then(() => self.skipWaiting())
+  )
+})
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((chaves) => Promise.all(chaves.filter((c) => c !== VERSAO).map((c) => caches.delete(c))))
+      .then(() => self.clients.claim())
+  )
+})
+
+// Navegação: sempre da rede (dados do condomínio mudam o tempo todo); sem conexão, mostra a página offline.
+self.addEventListener("fetch", (event) => {
+  if (event.request.mode !== "navigate") return
+  event.respondWith(
+    fetch(event.request).catch(() => caches.match(OFFLINE_URL).then((r) => r || Response.error()))
+  )
+})
 
 self.addEventListener("push", (event) => {
   let data = { title: "ZeloH", body: "", url: "/" }
@@ -14,8 +36,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: "/icon",
-      badge: "/icon",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/maskable-192.png",
       data: { url: data.url },
     })
   )

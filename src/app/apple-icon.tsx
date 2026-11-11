@@ -1,31 +1,9 @@
-import { ImageResponse } from "next/og"
+import { iconeApp } from "@/lib/icone-app"
 
 export const size = { width: 180, height: 180 }
 export const contentType = "image/png"
 
+// O iOS aplica o arredondamento sozinho — ícone quadrado e sem transparência
 export default function AppleIcon() {
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: 180,
-          height: 180,
-          background: "#18181b",
-          borderRadius: 40,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <span style={{ color: "white", fontSize: 50, fontWeight: 800, lineHeight: 1 }}>
-          ZE
-        </span>
-        <span style={{ color: "#a1a1aa", fontSize: 50, fontWeight: 800, lineHeight: 1 }}>
-          LO
-        </span>
-      </div>
-    ),
-    { ...size }
-  )
+  return iconeApp(180, { arredondado: false })
 }

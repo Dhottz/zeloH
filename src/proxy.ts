@@ -13,6 +13,7 @@ const PUBLIC_ROUTES = [
   "/api/cron",
   "/sw.js",
   "/manifest.json",
+  "/offline.html",
   "/icons/",
 ]
 

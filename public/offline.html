@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#B84A2E" />
+  <title>Sem conexão · ZeloH</title>
+  <style>
+    body { margin: 0; min-height: 100dvh; display: flex; align-items: center; justify-content: center;
+           background: #FAF0E8; color: #1C1410; font-family: Inter, system-ui, -apple-system, sans-serif; padding: 24px; box-sizing: border-box; }
+    .card { max-width: 360px; text-align: center; }
+    .logo { width: 72px; height: 72px; border-radius: 18px; background: #B84A2E; color: #FAF0E8; font-weight: 800;
+            display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 18px; letter-spacing: -0.5px; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    p { color: #7C6E66; font-size: 14px; line-height: 1.5; margin: 0 0 20px; }
+    button { background: #B84A2E; color: #fff; border: 0; border-radius: 10px; padding: 12px 20px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">ZELO</div>
+    <h1>Você está sem internet</h1>
+    <p>Assim que a conexão voltar, o ZeloH carrega normalmente. Ocorrências, encomendas e comunicados ficam salvos no servidor.</p>
+    <button onclick="location.reload()">Tentar novamente</button>
+  </div>
+  <script>window.addEventListener("online", () => location.reload())</script>
+</body>
+</html>

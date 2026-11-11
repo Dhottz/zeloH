@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
+import { InstalarApp } from "@/components/pwa/instalar-app"
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -116,6 +117,7 @@ export default function LoginPage() {
             </Link>
           </p>
         </Card>
+        <InstalarApp className="mt-4" />
       </div>
     </div>
   )

@@ -8,6 +8,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/use-auth"
 import { cn, fetchJson } from "@/lib/utils"
+import { InstalarApp } from "@/components/pwa/instalar-app"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -168,6 +169,7 @@ export default function MoradorHomePage() {
             )
           })}
         </div>
+        <InstalarApp className="mt-3" />
         <Link
           href="/morador/enquetes"
           className="mt-3 flex items-center gap-3 rounded-2xl border border-border bg-background p-3 shadow-sm"

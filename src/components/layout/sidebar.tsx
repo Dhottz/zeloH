@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from "@/hooks/use-auth"
 import { ROLE_LABEL, ehSindico, type Role } from "@/lib/permissions"
 import type { Modulo } from "@/lib/planos"
+import { InstalarApp } from "@/components/pwa/instalar-app"
 
 const GESTORES: Role[] = ["SINDICO", "SUBSINDICO", "ADMIN"]
 const EQUIPE: Role[]   = [...GESTORES, "CONSELHO", "ZELADOR", "PORTEIRO"]
@@ -247,6 +248,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
       </nav>
 
       <AvisoAssinatura />
+      <div className="px-2 pb-1"><InstalarApp variante="botao" /></div>
 
       <div className="px-3 py-3 border-t border-border">
         <div className="flex items-center gap-2.5">

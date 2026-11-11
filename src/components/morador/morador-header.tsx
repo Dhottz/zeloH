@@ -7,6 +7,7 @@ import { LogOut, Lock, ChevronDown, Building2, Eye, EyeOff, Loader2, CheckCircle
 import { useAuth } from "@/hooks/use-auth"
 import { cn } from "@/lib/utils"
 import { MoradorSino } from "./morador-sino"
+import { InstalarApp } from "@/components/pwa/instalar-app"
 
 // ─── Mini painel de perfil ─────────────────────────────────────────────────
 
@@ -102,6 +103,8 @@ function PerfilPanel({ onClose }: { onClose: () => void }) {
                 <Lock className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-foreground">Alterar senha</span>
               </button>
+
+              <InstalarApp variante="botao" className="rounded-xl py-2.5 mt-0.5" />
 
               <div className="my-1.5 border-t border-border" />
 
