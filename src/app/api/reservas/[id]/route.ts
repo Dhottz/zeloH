@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
+import { podeGerenciar } from "@/lib/permissions"
 import { z } from "zod"
 
 const updateSchema = z.object({
@@ -60,7 +61,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const session = await getSession()
   if (!session) return NextResponse.json({ message: "Não autenticado" }, { status: 401 })
-  if (!["SINDICO", "ADMIN", "PORTEIRO"].includes(session.role)) {
+  if (!(podeGerenciar(session.role) || session.role === "PORTEIRO")) {
     return NextResponse.json({ message: "Sem permissão" }, { status: 403 })
   }
 

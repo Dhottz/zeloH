@@ -33,7 +33,53 @@ interface Comunicado {
   destinatario: ComunicadoDestinatario
   blocos: string[]
   unidades: string[]
+  publicarEm?: string | null
+  totalDestinatarios?: number
+  _count?: { leituras: number }
   autor: { id: string; nome: string; role: string }
+}
+
+function paraDatetimeLocal(iso: string | null | undefined) {
+  if (!iso) return ""
+  const d = new Date(iso)
+  const off = d.getTimezoneOffset() * 60000
+  return new Date(d.getTime() - off).toISOString().slice(0, 16)
+}
+
+/** Lista de quem leu / não leu o comunicado. */
+function LeiturasDialog({ comunicado, onClose }: { comunicado: Comunicado | null; onClose: () => void }) {
+  const [dados, setDados] = useState<{ leram: { id: string; nome: string; bloco: string | null; unidade: string | null; lidoEm: string }[]; naoLeram: { id: string; nome: string; bloco: string | null; unidade: string | null }[] } | null>(null)
+  useEffect(() => {
+    if (!comunicado) { setDados(null); return }
+    fetch(`/api/comunicados/${comunicado.id}/leitura`).then((r) => r.json()).then(setDados)
+  }, [comunicado])
+  const loc = (m: { bloco: string | null; unidade: string | null }) => [m.bloco && `Bl. ${m.bloco}`, m.unidade && `Apto ${m.unidade}`].filter(Boolean).join(" · ")
+  return (
+    <Dialog open={!!comunicado} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Confirmação de leitura</DialogTitle></DialogHeader>
+        {!dados ? <Loader2 className="h-5 w-5 animate-spin mx-auto my-6" /> : (
+          <div className="space-y-4 text-sm">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-green-700 mb-1.5">Leram ({dados.leram.length})</p>
+              {dados.leram.length === 0 ? <p className="text-muted-foreground">Ninguém ainda.</p> : dados.leram.map((m) => (
+                <div key={m.id} className="flex justify-between py-1 border-b border-border last:border-0">
+                  <span>{m.nome} <span className="text-xs text-muted-foreground">{loc(m)}</span></span>
+                  <span className="text-xs text-muted-foreground">{new Date(m.lidoEm).toLocaleDateString("pt-BR")}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Não leram ({dados.naoLeram.length})</p>
+              {dados.naoLeram.map((m) => (
+                <div key={m.id} className="py-1 border-b border-border last:border-0">{m.nome} <span className="text-xs text-muted-foreground">{loc(m)}</span></div>
+              ))}
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 const DESTINATARIO_CONFIG: Record<ComunicadoDestinatario, { label: string; icon: React.ReactNode }> = {
@@ -55,7 +101,7 @@ const TIPOS: ComunicadoTipo[] = ["GERAL", "AVISO", "URGENTE", "EVENTO"]
 
 const initForm = {
   titulo: "", conteudo: "", tipo: "GERAL" as ComunicadoTipo,
-  fixado: false, publicado: false, expiraEm: "",
+  fixado: false, publicado: false, expiraEm: "", publicarEm: "",
   destinatario: "TODOS" as ComunicadoDestinatario,
   blocos: "", unidades: "",   // strings separadas por vírgula na UI
 }
@@ -67,7 +113,7 @@ function formatDate(d: string) {
 // ─── Card interno ────────────────────────────────────────────────────────────
 
 function ComunicadoCard({
-  c, expandedId, setExpandedId, onEditar, onToggle, onArquivar, onExcluir, readonly,
+  c, expandedId, setExpandedId, onEditar, onToggle, onArquivar, onExcluir, readonly, onVerLeituras,
 }: {
   c: Comunicado
   expandedId: string | null
@@ -75,6 +121,7 @@ function ComunicadoCard({
   onEditar: (c: Comunicado) => void
   onToggle: (c: Comunicado, campo: "publicado" | "fixado") => void
   onArquivar: (id: string) => void
+  onVerLeituras?: (c: Comunicado) => void
   onExcluir: (id: string) => void
   readonly?: boolean
 }) {
@@ -118,6 +165,14 @@ function ComunicadoCard({
           <span>Por {c.autor.nome}</span>
           <span>{formatDate(c.createdAt)}</span>
           {c.expiraEm && <span>Expira {formatDate(c.expiraEm)}</span>}
+          {c.publicarEm && new Date(c.publicarEm) > new Date() && (
+            <span className="text-violet-700 font-medium">Agendado: {new Date(c.publicarEm).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+          )}
+          {c.publicado && c.totalDestinatarios !== undefined && (
+            <button type="button" onClick={() => onVerLeituras?.(c)} className="text-primary hover:underline">
+              Lido por {c._count?.leituras ?? 0} de {c.totalDestinatarios}
+            </button>
+          )}
         </div>
 
         {!readonly && (
@@ -169,6 +224,7 @@ export default function ComunicadosPage() {
   const [modalAberto, setModalAberto] = useState(false)
   const [editando, setEditando]       = useState<Comunicado | null>(null)
   const [form, setForm]               = useState({ ...initForm })
+  const [vendoLeituras, setVendoLeituras] = useState<Comunicado | null>(null)
   const [salvando, setSalvando]       = useState(false)
   const [feedback, setFeedback]       = useState<{ type: "ok" | "erro"; text: string } | null>(null)
   const [expandedId, setExpandedId]         = useState<string | null>(null)
@@ -216,6 +272,7 @@ export default function ComunicadosPage() {
       fixado:       c.fixado,
       publicado:    c.publicado,
       expiraEm:     c.expiraEm ? c.expiraEm.slice(0, 10) : "",
+      publicarEm:   paraDatetimeLocal(c.publicarEm),
       destinatario: c.destinatario ?? "TODOS",
       blocos:       (c.blocos ?? []).join(", "),
       unidades:     (c.unidades ?? []).join(", "),
@@ -229,6 +286,7 @@ export default function ComunicadosPage() {
       const body = {
         ...form,
         expiraEm: form.expiraEm || null,
+        publicarEm: form.publicarEm ? new Date(form.publicarEm).toISOString() : null,
         blocos:   form.blocos.split(",").map(s => s.trim()).filter(Boolean),
         unidades: form.unidades.split(",").map(s => s.trim()).filter(Boolean),
       }
@@ -436,7 +494,7 @@ export default function ComunicadosPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {ativos.map((c) => <ComunicadoCard key={c.id} c={c} expandedId={expandedId} setExpandedId={setExpandedId} onEditar={abrirEditar} onToggle={handleToggle} onArquivar={handleArquivar} onExcluir={handleExcluir} readonly={isZelador} />)}
+              {ativos.map((c) => <ComunicadoCard key={c.id} c={c} expandedId={expandedId} setExpandedId={setExpandedId} onEditar={abrirEditar} onToggle={handleToggle} onArquivar={handleArquivar} onExcluir={handleExcluir} readonly={isZelador} onVerLeituras={setVendoLeituras} />)}
             </div>
           )}
 
@@ -606,6 +664,19 @@ export default function ComunicadosPage() {
               />
             </div>
 
+            <div className="space-y-1.5">
+              <Label htmlFor="c-agendar">
+                Agendar publicação{" "}
+                <span className="text-muted-foreground font-normal">(opcional — os moradores só veem e são avisados a partir desta data)</span>
+              </Label>
+              <Input
+                id="c-agendar"
+                type="datetime-local"
+                value={form.publicarEm}
+                onChange={(e) => setForm((f) => ({ ...f, publicarEm: e.target.value, publicado: e.target.value ? true : f.publicado }))}
+              />
+            </div>
+
             {/* Opções */}
             <div className="flex gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -638,6 +709,7 @@ export default function ComunicadosPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    <LeiturasDialog comunicado={vendoLeituras} onClose={() => setVendoLeituras(null)} />
     </div>
   )
 }

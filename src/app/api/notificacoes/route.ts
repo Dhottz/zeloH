@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
+import { podeGerenciar } from "@/lib/permissions"
 
 export interface NotificacaoItem {
   id: string
@@ -18,7 +19,7 @@ export async function GET() {
   const { condominioId } = session
 
   try {
-    const isSindico = session.role === "SINDICO" || session.role === "ADMIN"
+    const isSindico = podeGerenciar(session.role) || session.role === "CONSELHO"
 
     const trintaDiasAtras = new Date()
     trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30)
@@ -50,14 +51,10 @@ export async function GET() {
         take: 10,
       }),
 
-      // Entregas aguardando retirada (nome não começa com RETIRADO:)
-      prisma.documento.findMany({
-        where: {
-          condominioId,
-          tipo: "ENTREGA",
-          nome: { not: { startsWith: "RETIRADO:" } },
-        },
-        select: { id: true, nome: true, conteudo: true, createdAt: true },
+      // Encomendas aguardando retirada
+      prisma.encomenda.findMany({
+        where: { condominioId, status: "AGUARDANDO" },
+        select: { id: true, destinatarioNome: true, unidade: true, bloco: true, createdAt: true },
         orderBy: { createdAt: "desc" },
         take: 10,
       }),
@@ -65,7 +62,7 @@ export async function GET() {
       // Ações do zelador — só para síndico/admin
       isSindico
         ? prisma.notificacao.findMany({
-            where: { condominioId, criadaEm: { gte: trintaDiasAtras } },
+            where: { condominioId, usuarioId: null, criadaEm: { gte: trintaDiasAtras } },
             orderBy: { criadaEm: "desc" },
             take: 20,
           })
@@ -107,21 +104,14 @@ export async function GET() {
       })
     }
 
-    // Entregas
+    // Encomendas
     for (const e of entregas) {
-      let destinatario = e.nome
-      try {
-        if (e.conteudo) {
-          const parsed = JSON.parse(e.conteudo)
-          if (parsed.descricao) destinatario = parsed.descricao
-        }
-      } catch { /* usa nome como fallback */ }
-
+      const loc = [e.bloco && `Bl. ${e.bloco}`, e.unidade && `Apto ${e.unidade}`].filter(Boolean).join(" · ")
       notificacoes.push({
         id:        `entrega-${e.id}`,
         tipo:      "ENTREGA",
-        titulo:    destinatario,
-        descricao: "Aguardando retirada",
+        titulo:    e.destinatarioNome,
+        descricao: `${loc ? loc + " · " : ""}Aguardando retirada`,
         href:      "/entregas",
         createdAt: e.createdAt.toISOString(),
       })

@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, useContext } from "react"
-import { useRouter } from "next/navigation"
+import { createContext, useContext } from "react"
+import type { Modulo, PlanoId, StatusAssinatura } from "@/lib/planos"
 
-interface Usuario {
+export interface Usuario {
   id: string
   nome: string
   email: string
@@ -11,7 +11,17 @@ interface Usuario {
   unidade?: string | null
   bloco?: string | null
   primeiroAcesso?: boolean
-  condominio: { id: string; nome: string; cnpj?: string | null }
+  prestadorId?: string | null
+  notificarEmail?: boolean
+  condominio: { id: string; nome: string; cnpj?: string | null; blocos?: string[] }
+  condominios?: { id: string; nome: string; role: string }[]
+  assinatura?: {
+    plano: PlanoId
+    status: StatusAssinatura
+    trialAte: string | null
+    diasTrial: number
+    modulos: Modulo[]
+  }
 }
 
 interface AuthContextValue {
@@ -19,14 +29,19 @@ interface AuthContextValue {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  recarregar: () => Promise<void>
+  trocarCondominio: (condominioId: string) => Promise<void>
+  temModulo: (modulo: Modulo) => boolean
 }
 
-import { createContext } from "react"
 export const AuthContext = createContext<AuthContextValue>({
   usuario: null,
   loading: true,
   login: async () => {},
   logout: async () => {},
+  recarregar: async () => {},
+  trocarCondominio: async () => {},
+  temModulo: () => true,
 })
 
 export function useAuth() {

@@ -65,12 +65,8 @@ export async function GET() {
       }),
 
       // Entregas aguardando retirada
-      prisma.documento.count({
-        where: {
-          condominioId,
-          tipo: "ENTREGA",
-          NOT: { nome: { startsWith: "RETIRADO:" } },
-        },
+      prisma.encomenda.count({
+        where: { condominioId, destinatarioId: moradorId, status: "AGUARDANDO" },
       }),
 
       // Próximas 3 reservas do morador

@@ -2,17 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { AuthContext } from "@/hooks/use-auth"
+import { AuthContext, type Usuario } from "@/hooks/use-auth"
+import type { Modulo } from "@/lib/planos"
 
-interface Usuario {
-  id: string
-  nome: string
-  email: string
-  role: string
-  unidade?: string | null
-  bloco?: string | null
-  primeiroAcesso?: boolean
-  condominio: { id: string; nome: string; cnpj?: string | null }
+function homeDo(role: string) {
+  if (role === "MORADOR") return "/morador"
+  if (role === "PRESTADOR") return "/manutencoes"
+  return "/dashboard"
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -53,15 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(data.message ?? "Erro ao fazer login")
     }
 
-    // Primeiro acesso: redireciona para definir senha
-    if (data.primeiroAcesso) {
-      router.push(`/primeiro-acesso?token=${data.setupToken}`)
-      return
-    }
-
-    setUsuario(data.usuario)
-    // Moradores têm interface mobile própria
-    router.push(data.usuario.role === "MORADOR" ? "/morador" : "/dashboard")
+    await fetchMe()
+    router.push(homeDo(data.usuario.role))
   }
 
   const logout = async () => {
@@ -70,8 +59,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/login")
   }
 
+  const trocarCondominio = async (condominioId: string) => {
+    const res = await fetch("/api/auth/trocar-condominio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ condominioId }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message ?? "Não foi possível trocar de condomínio")
+    // Recarrega a página inteira para limpar dados do condomínio anterior
+    window.location.href = homeDo(data.role)
+  }
+
+  const temModulo = useCallback(
+    (modulo: Modulo) => !usuario?.assinatura || usuario.assinatura.modulos.includes(modulo),
+    [usuario]
+  )
+
   return (
-    <AuthContext.Provider value={{ usuario, loading, login, logout }}>
+    <AuthContext.Provider
+      value={{ usuario, loading, login, logout, recarregar: fetchMe, trocarCondominio, temModulo }}
+    >
       {children}
     </AuthContext.Provider>
   )

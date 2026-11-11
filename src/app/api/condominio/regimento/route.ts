@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
+import { podeGerenciar } from "@/lib/permissions"
 
 // ─── GET: retorna o texto do regimento ───────────────────────────────────────
 
@@ -25,7 +26,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await getSession()
   if (!session) return NextResponse.json({ message: "Não autenticado" }, { status: 401 })
-  if (session.role !== "SINDICO" && session.role !== "ADMIN") {
+  if (!podeGerenciar(session.role)) {
     return NextResponse.json({ message: "Sem permissão" }, { status: 403 })
   }
 

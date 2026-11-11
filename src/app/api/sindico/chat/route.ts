@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
-import Anthropic from "@anthropic-ai/sdk"
+import { anthropic, ZIA_MODEL, extrairTexto } from "@/services/ai/assistant"
 import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
+import { podeGerenciar } from "@/lib/permissions"
+import { exigirModulo } from "@/lib/api"
+import { itensDeAtencao } from "@/lib/atencao"
+import { rotuloCategoria } from "@/lib/equipamentos"
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 // ─── System prompt do síndico (inclui documentos) ────────────────────────────
 
@@ -19,7 +22,7 @@ async function buildSystemPrompt(condominioId: string, condominioNome: string): 
 
     // Documentos — só disponíveis para o síndico
     prisma.documento.findMany({
-      where: { condominioId },
+      where: { condominioId, atual: true, tipo: { not: "ENTREGA" } },
       orderBy: { createdAt: "desc" },
       take: 20,
       select: { nome: true, tipo: true, conteudo: true, createdAt: true },
@@ -50,6 +53,60 @@ async function buildSystemPrompt(condominioId: string, condominioNome: string): 
       where: { condominioId, status: { in: ["ABERTO", "EM_ANDAMENTO", "AGUARDANDO_PRESTADOR"] } },
     }),
   ])
+
+  const inicioAno = new Date(hoje.getFullYear(), 0, 1)
+  const [atencao, equipamentos, contratos, despesasAno] = await Promise.all([
+    itensDeAtencao(condominioId),
+    prisma.equipamento.findMany({
+      where: { condominioId, ativo: true },
+      select: {
+        nome: true, categoria: true, local: true, garantiaAte: true,
+        planos: { where: { ativo: true }, select: { titulo: true, proximaEm: true }, take: 2 },
+        manutencoes: { where: { status: "COMPLETED" }, orderBy: { concluidoEm: "desc" }, take: 1, select: { titulo: true, concluidoEm: true } },
+        _count: { select: { manutencoes: true, chamados: true } },
+      },
+      take: 60,
+    }),
+    prisma.contrato.findMany({
+      where: { condominioId, ativo: true },
+      select: { titulo: true, valor: true, periodicidade: true, fim: true, prestador: { select: { nome: true } } },
+    }),
+    prisma.despesa.groupBy({
+      by: ["categoria"],
+      where: { condominioId, status: { in: ["APROVADA", "PAGA"] }, competencia: { gte: inicioAno } },
+      _sum: { valor: true },
+    }),
+  ])
+
+  const fmt = (d: Date | null) => (d ? new Date(d).toLocaleDateString("pt-BR") : "—")
+  const brl = (v: unknown) => `R$ ${Number(v ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+
+  const atencaoSection = atencao.length
+    ? `\n## PENDÊNCIAS DE HOJE (prioridade)
+` + atencao.map((a) => `• [${a.severidade}] ${a.titulo} — ${a.descricao}`).join("\n")
+    : "\n## PENDÊNCIAS\nNenhuma pendência no momento.\n"
+
+  const equipamentosSection = equipamentos.length
+    ? `\n## EQUIPAMENTOS (${equipamentos.length})
+` + equipamentos.map((e) =>
+        `• ${e.nome} (${rotuloCategoria(e.categoria)}${e.local ? `, ${e.local}` : ""}) — ${e._count.manutencoes} manutenção(ões), ${e._count.chamados} ocorrência(s); ` +
+        `última: ${e.manutencoes[0] ? `${e.manutencoes[0].titulo} em ${fmt(e.manutencoes[0].concluidoEm)}` : "nenhuma"}; ` +
+        `preventiva: ${e.planos.map((p) => `${p.titulo} em ${fmt(p.proximaEm)}`).join(", ") || "sem plano"}` +
+        (e.garantiaAte ? `; garantia até ${fmt(e.garantiaAte)}` : "")
+      ).join("\n")
+    : ""
+
+  const contratosSection = contratos.length
+    ? `\n## CONTRATOS ATIVOS
+` + contratos.map((c) =>
+        `• ${c.titulo}${c.prestador ? ` — ${c.prestador.nome}` : ""}${c.valor ? `, ${brl(c.valor)} (${c.periodicidade.toLowerCase()})` : ""}, vigência até ${fmt(c.fim)}`
+      ).join("\n")
+    : ""
+
+  const financeiroSection = despesasAno.length
+    ? `\n## DESPESAS DO ANO (aprovadas/pagas)
+` + despesasAno.map((d) => `• ${d.categoria}: ${brl(d._sum.valor)}`).join("\n")
+    : ""
 
   // ── Seções do prompt ──────────────────────────────────────────────────────
 
@@ -93,7 +150,8 @@ async function buildSystemPrompt(condominioId: string, condominioNome: string): 
 Você está conversando com o **síndico** do condomínio. Seu papel é ser um parceiro estratégico:
 - Responder perguntas sobre o **regimento** e os **documentos/contratos** cadastrados
 - Ajudar a interpretar cláusulas contratuais e regulamentares
-- Dar visibilidade sobre **manutenções**, **comunicados** e **chamados**
+- Dar visibilidade sobre **pendências**, **manutenções**, **equipamentos**, **contratos**, **despesas**, **comunicados** e **chamados**
+- Quando perguntarem "o que fazer hoje", priorize as PENDÊNCIAS (crítico → alerta → info)
 - Apoiar na redação de comunicados e respostas a moradores
 - Sugerir boas práticas de gestão condominial
 
@@ -103,7 +161,7 @@ Você está conversando com o **síndico** do condomínio. Seu papel é ser um p
 - Se uma informação não estiver disponível no contexto, diga claramente
 - Para dúvidas jurídicas complexas, recomende consulta a um advogado especialista
 - Os documentos abaixo são CONFIDENCIAIS e não devem ser compartilhados com moradores
-${regimentoSection}${documentosSection}${comunicadosSection}${manutencoesSection}${chamadosSection}`
+${atencaoSection}${regimentoSection}${documentosSection}${comunicadosSection}${manutencoesSection}${chamadosSection}${equipamentosSection}${contratosSection}${financeiroSection}`
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -112,10 +170,12 @@ export async function POST(req: NextRequest) {
   const session = await getSession()
   if (!session) return NextResponse.json({ message: "Não autenticado" }, { status: 401 })
 
-  // Só síndico/admin/zelador
-  if (session.role === "MORADOR") {
+  // Só gestores (o contexto inclui documentos confidenciais e finanças)
+  if (!podeGerenciar(session.role)) {
     return NextResponse.json({ message: "Acesso negado" }, { status: 403 })
   }
+  const bloqueio = await exigirModulo(session.condominioId, "zia")
+  if (bloqueio) return bloqueio
 
   let body: unknown
   try { body = await req.json() } catch {
@@ -137,18 +197,19 @@ export async function POST(req: NextRequest) {
     const systemPrompt = await buildSystemPrompt(session.condominioId, condo?.nome ?? "Condomínio")
 
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",   // Sonnet para síndico — respostas mais elaboradas
-      max_tokens: 1024,
+      model: ZIA_MODEL,   // Sonnet para síndico — respostas mais elaboradas
+      max_tokens: 8000,
+      output_config: { effort: "medium" },
       system: systemPrompt,
       messages: mensagens as Array<{ role: "user" | "assistant"; content: string }>,
     })
 
-    const bloco = response.content[0]
-    if (bloco.type !== "text") {
+    const texto = extrairTexto(response)
+    if (!texto) {
       return NextResponse.json({ resposta: "Não consegui processar. Tente novamente." })
     }
 
-    return NextResponse.json({ resposta: bloco.text })
+    return NextResponse.json({ resposta: texto })
   } catch (error) {
     console.error("[POST /api/sindico/chat]", error)
     return NextResponse.json({ resposta: "Erro interno. Tente novamente." }, { status: 500 })

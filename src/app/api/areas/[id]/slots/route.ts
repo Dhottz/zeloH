@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
+import { podeOperar } from "@/lib/permissions"
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   const abertura    = toMinutes(area.horarioAbertura)
   const fechamento  = toMinutes(area.horarioFechamento)
 
-  const isStaff = ["SINDICO", "ADMIN", "PORTEIRO", "ZELADOR"].includes(session.role)
+  const isStaff = (podeOperar(session.role) || session.role === "PORTEIRO")
 
   const slots: Array<{
     horaInicio: string

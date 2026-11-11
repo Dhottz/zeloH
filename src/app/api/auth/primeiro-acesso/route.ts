@@ -2,11 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { hashPassword, createToken, setAuthCookie } from "@/lib/auth"
 import { jwtVerify } from "jose"
+import { getJwtSecret } from "@/lib/jwt-secret"
 import { z } from "zod"
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? "zeloh-dev-secret-min-32-chars-ok!"
-)
 
 const schema = z.object({
   setupToken: z.string(),
@@ -29,7 +27,7 @@ export async function POST(req: NextRequest) {
   // Valida o token de setup
   let userId: string
   try {
-    const { payload } = await jwtVerify(setupToken, JWT_SECRET)
+    const { payload } = await jwtVerify(setupToken, getJwtSecret())
     if (payload.tipo !== "setup-senha" || !payload.sub) {
       throw new Error("Token inválido")
     }
@@ -62,6 +60,7 @@ export async function POST(req: NextRequest) {
       role:         usuario.role,
       condominioId: usuario.condominioId,
       nome:         usuario.nome,
+      prestadorId:  usuario.prestadorId,
     })
 
     await setAuthCookie(token)

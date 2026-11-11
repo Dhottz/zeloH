@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
+import { podeGerenciar } from "@/lib/permissions"
 import { z } from "zod"
 
 const createSchema = z.object({
@@ -38,12 +39,32 @@ export async function GET(req: NextRequest) {
         } : {}),
       },
       orderBy: [{ ativo: "desc" }, { nome: "asc" }],
+      include: {
+        _count: { select: { contratos: { where: { ativo: true } }, manutencoes: true } },
+      },
     })
+
+    // Média das avaliações por prestador
+    const notas = await prisma.avaliacaoPrestador.groupBy({
+      by: ["prestadorId"],
+      where: { condominioId: session.condominioId },
+      _avg: { nota: true },
+      _count: { _all: true },
+    })
+    const notaDe = new Map(notas.map((n) => [n.prestadorId, { media: n._avg.nota, total: n._count._all }]))
 
     const total  = await prisma.prestador.count({ where: { condominioId: session.condominioId } })
     const ativos = await prisma.prestador.count({ where: { condominioId: session.condominioId, ativo: true } })
 
-    return NextResponse.json({ prestadores, total, ativos })
+    return NextResponse.json({
+      prestadores: prestadores.map((p) => ({
+        ...p,
+        avaliacaoMedia: notaDe.get(p.id)?.media ?? null,
+        avaliacoes: notaDe.get(p.id)?.total ?? 0,
+      })),
+      total,
+      ativos,
+    })
   } catch (error) {
     console.error("[GET /api/prestadores]", error)
     return NextResponse.json({ message: "Erro interno" }, { status: 500 })
@@ -54,7 +75,7 @@ export async function POST(req: NextRequest) {
   const session = await getSession()
   if (!session) return NextResponse.json({ message: "Não autenticado" }, { status: 401 })
 
-  if (session.role !== "SINDICO" && session.role !== "ADMIN") {
+  if (!podeGerenciar(session.role)) {
     return NextResponse.json({ message: "Sem permissão" }, { status: 403 })
   }
 

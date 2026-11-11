@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
+import { podeGerenciar } from "@/lib/permissions"
 import { z } from "zod"
 
 const updateSchema = z.object({
@@ -53,7 +54,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   // Apenas síndico ou admin pode editar
-  if (session.role !== "SINDICO" && session.role !== "ADMIN") {
+  if (!podeGerenciar(session.role)) {
     return NextResponse.json({ message: "Sem permissão" }, { status: 403 })
   }
 

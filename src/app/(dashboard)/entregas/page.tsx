@@ -12,6 +12,8 @@ import { Skeleton }  from "@/components/ui/skeleton"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label }     from "@/components/ui/label"
 import { cn }        from "@/lib/utils"
+import { ArquivoUnicoInput } from "@/components/shared/arquivos-input"
+import { urlArquivo } from "@/lib/arquivos"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,13 +24,16 @@ interface Entrega {
   remetente:      string
   descricao:      string | null
   unidade:        string | null
+  bloco:          string | null
+  foto:           string | null
   retirada:       boolean
   retiradaEm:     string | null
+  retiradoPor:    string | null
   createdAt:      string
 }
 
 interface Stats { aguardando: number; retiradasHoje: number; total: number }
-interface Morador { id: string; nome: string; unidade: string | null }
+interface Morador { id: string; nome: string; unidade: string | null; bloco?: string | null; role?: string }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -76,7 +81,7 @@ export default function EntregasPage() {
   const [excluindo, setExcluindo]         = useState(false)
   const [confirmarExcluir, setConfirmarExcluir] = useState(false)
   const [moradores, setMoradores]         = useState<Morador[]>([])
-  const [form, setForm]                   = useState({ destinatarioId: "", remetente: "", descricao: "", retirada: false })
+  const [form, setForm]                   = useState({ destinatarioId: "", remetente: "", descricao: "", retirada: false, foto: null as string | null })
   const [salvando, setSalvando]           = useState(false)
   const [feedback, setFeedback]     = useState<{ id: string; tipo: "ok" | "erro"; texto: string } | null>(null)
   const [avisando, setAvisando]     = useState<string | null>(null)
@@ -104,19 +109,21 @@ export default function EntregasPage() {
 
   useEffect(() => {
     if (modalAberto) {
-      fetch("/api/moradores")
+      fetch("/api/moradores?role=MORADOR")
         .then((r) => r.json())
         .then((d) => setMoradores(d.moradores ?? []))
     }
   }, [modalAberto])
 
   async function retirar(entrega: Entrega) {
+    const quem = window.prompt("Quem está retirando? (deixe em branco se for o próprio morador)", "")
+    if (quem === null) return
     setRetirando(entrega.id)
     try {
       const res = await fetch(`/api/entregas/${entrega.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acao: "retirar" }),
+        body: JSON.stringify({ acao: "retirar", retiradoPorNome: quem }),
       })
       if (res.ok) {
         showFeedback(entrega.id, "ok", "Marcada como retirada")
@@ -153,6 +160,7 @@ export default function EntregasPage() {
       remetente:      entrega.remetente ?? "",
       descricao:      entrega.descricao ?? "",
       retirada:       entrega.retirada,
+      foto:           entrega.foto,
     })
     setModal(true)
   }
@@ -161,7 +169,7 @@ export default function EntregasPage() {
     setModal(false)
     setEditandoId(null)
     setConfirmarExcluir(false)
-    setForm({ destinatarioId: "", remetente: "", descricao: "", retirada: false })
+    setForm({ destinatarioId: "", remetente: "", descricao: "", retirada: false, foto: null })
   }
 
   async function excluir() {
@@ -189,6 +197,7 @@ export default function EntregasPage() {
             remetente:      form.remetente,
             descricao:      form.descricao,
             retirada:       form.retirada,
+            foto:           form.foto,
           }),
         })
         if (res.ok) { fecharModal(); fetchEntregas(pagina) }
@@ -391,7 +400,7 @@ export default function EntregasPage() {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       {entrega.unidade && (
                         <span className="flex items-center gap-1">
-                          <Building2 className="w-3 h-3" />{entrega.unidade}
+                          <Building2 className="w-3 h-3" />{entrega.bloco ? `${entrega.bloco}-` : ""}{entrega.unidade}
                         </span>
                       )}
                       {entrega.descricao && (
@@ -412,9 +421,17 @@ export default function EntregasPage() {
                   {entrega.retirada && entrega.retiradaEm && (
                     <p className="text-green-600">
                       Retirada {fmtData(entrega.retiradaEm)} às {fmtHora(entrega.retiradaEm)}
+                      {entrega.retiradoPor && ` por ${entrega.retiradoPor}`}
                     </p>
                   )}
                 </div>
+
+                {entrega.foto && (
+                  <a href={urlArquivo(entrega.foto)} target="_blank" rel="noreferrer" className="block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={urlArquivo(entrega.foto)} alt="Foto do pacote" className="w-full h-28 object-cover rounded-lg border border-border" />
+                  </a>
+                )}
 
                 {/* Ações */}
                 <div className="flex items-center gap-2 mt-auto">
@@ -539,6 +556,21 @@ export default function EntregasPage() {
                 onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
                 className="h-9"
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">
+                Foto do pacote <span className="text-muted-foreground font-normal">(opcional)</span>
+              </Label>
+              <ArquivoUnicoInput
+                valor={form.foto}
+                onChange={(v) => setForm((f) => ({ ...f, foto: v }))}
+                pasta="encomendas"
+                rotulo="Tirar foto"
+              />
+              {!editandoId && (
+                <p className="text-[11px] text-muted-foreground">O morador recebe o aviso no app, no celular e por e-mail.</p>
+              )}
             </div>
 
             {editandoId && (

@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AlertCircle, CalendarClock, Package, Wrench, ArrowRight } from "lucide-react"
+import Link from "next/link"
+import { AlertCircle, CalendarClock, Package, Wrench, ArrowRight, AlertTriangle, Info, CheckCircle2, Bell, Wallet } from "lucide-react"
 import { MetricCard } from "@/components/dashboard/metric-card"
 import { ZiaSuggestion } from "@/components/dashboard/zia-suggestion"
 import { OccurrencesChart } from "@/components/dashboard/occurrences-chart"
@@ -10,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/hooks/use-auth"
-import { formatDateTime } from "@/lib/utils"
+import { cn, formatDateTime, formatMoeda } from "@/lib/utils"
 
 const statusCor: Record<string, string> = {
   ABERTO:               "bg-red-100 text-red-700",
@@ -32,8 +33,13 @@ interface DashboardData {
   metricas: {
     ocorrenciasAbertas: number
     encomendasHoje: number
-    manutencoesVencendo: number
+    encomendasAguardando: number
+    reservasPendentes: number
+    manutencoesSemana: number
+    manutencoesAtrasadas: number
+    despesasMes: number | null
   }
+  atencao: Array<{ id: string; severidade: "critico" | "alerta" | "info"; titulo: string; descricao: string; href: string }>
   ultimosChamados: Array<{
     id: string
     titulo: string
@@ -48,8 +54,50 @@ interface DashboardData {
     titulo: string
     agendadoEm: string | null
     prestadorNome: string | null
+    equipamento: string | null
+    tipo: string
     status: string
   }>
+}
+
+const SEVERIDADE = {
+  critico: { icone: AlertTriangle, cor: "bg-red-100 text-red-700", rotulo: "Urgente" },
+  alerta:  { icone: Bell,          cor: "bg-amber-100 text-amber-800", rotulo: "Atenção" },
+  info:    { icone: Info,          cor: "bg-blue-50 text-blue-700", rotulo: "Info" },
+} as const
+
+function PrecisaAtencao({ itens, loading }: { itens: DashboardData["atencao"]; loading: boolean }) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold">Precisa da sua atenção</h2>
+        {!loading && itens.length > 0 && <span className="text-xs text-muted-foreground">{itens.length} item(ns)</span>}
+      </div>
+      {loading ? (
+        <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+      ) : itens.length === 0 ? (
+        <div className="flex items-center gap-3 py-4 text-sm text-muted-foreground">
+          <CheckCircle2 className="w-5 h-5 text-green-600" /> Tudo em dia. Nenhuma pendência no momento.
+        </div>
+      ) : (
+        <div className="divide-y divide-border">
+          {itens.slice(0, 8).map((i) => {
+            const sv = SEVERIDADE[i.severidade]
+            return (
+              <Link key={i.id} href={i.href} className="flex items-center gap-3 py-2.5 group">
+                <div className={cn("rounded-lg p-1.5 shrink-0", sv.cor)}><sv.icone className="w-3.5 h-3.5" /></div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{i.titulo}</p>
+                  <p className="text-xs text-muted-foreground truncate">{i.descricao}</p>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </Card>
+  )
 }
 
 export default function DashboardPage() {
@@ -102,35 +150,51 @@ export default function DashboardPage() {
             />
             <MetricCard
               title="Reservas pendentes"
-              value={0}
+              value={data?.metricas.reservasPendentes ?? 0}
               icon={CalendarClock}
-              subtitle="aguarda aprovação"
+              subtitle="aguardam confirmação"
             />
             <MetricCard
-              title="Encomendas hoje"
-              value={data?.metricas.encomendasHoje ?? 0}
+              title="Encomendas na portaria"
+              value={data?.metricas.encomendasAguardando ?? 0}
               icon={Package}
+              subtitle={`${data?.metricas.encomendasHoje ?? 0} chegaram hoje`}
             />
-            <MetricCard
-              title="Manutenções ag."
-              value={data?.metricas.manutencoesVencendo ?? 0}
-              icon={Wrench}
-              subtitle="próximas agendadas"
-            />
+            {data?.metricas.despesasMes != null ? (
+              <MetricCard
+                title="Despesas do mês"
+                value={formatMoeda(data.metricas.despesasMes)}
+                icon={Wallet}
+                subtitle={`${data.metricas.manutencoesAtrasadas} manutenção(ões) atrasada(s)`}
+              />
+            ) : (
+              <MetricCard
+                title="Manutenções na semana"
+                value={data?.metricas.manutencoesSemana ?? 0}
+                icon={Wrench}
+                subtitle={`${data?.metricas.manutencoesAtrasadas ?? 0} atrasada(s)`}
+              />
+            )}
           </>
         )}
       </div>
 
-      {/* Gráfico + Zia */}
+      {/* Pendências + Zia */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          <OccurrencesChart condominioId={usuario?.condominio?.id} />
+          <PrecisaAtencao itens={data?.atencao ?? []} loading={loading} />
         </div>
         <ZiaSuggestion
-          message="A Zia estará disponível após ativar a chave de API. Por enquanto, acompanhe as ocorrências manualmente."
-          action={{ label: "Ver ocorrências", onClick: () => window.location.href = "/ocorrencias" }}
+          message={
+            data?.atencao?.length
+              ? `Hoje o mais importante é: ${data.atencao[0].titulo.toLowerCase()}. Posso te ajudar a resolver ou redigir um comunicado.`
+              : "Tudo em dia por aqui. Quer que eu prepare o resumo do mês para a próxima assembleia?"
+          }
+          action={{ label: "Falar com a Zia", onClick: () => window.location.href = "/zia" }}
         />
       </div>
+
+      <OccurrencesChart condominioId={usuario?.condominio?.id} />
 
       {/* Últimas ocorrências + Manutenções */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -182,7 +246,7 @@ export default function DashboardPage() {
         {/* Próximas manutenções */}
         <Card className="p-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold">Próximas manutenções</h2>
+            <h2 className="text-sm font-semibold">Manutenções desta semana</h2>
             <Button variant="ghost" size="sm" className="text-xs text-primary gap-1 h-7"
               onClick={() => window.location.href = "/manutencoes"}>
               Ver agenda <ArrowRight className="w-3 h-3" />
@@ -227,12 +291,12 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{m.titulo}</p>
-                      {m.prestadorNome && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{m.prestadorNome}</p>
-                      )}
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {[m.equipamento, m.prestadorNome].filter(Boolean).join(" · ") || "Equipe interna"}
+                      </p>
                     </div>
-                    <Badge className="text-[10px] shrink-0 bg-green-100 text-green-700 border-0">
-                      Agendada
+                    <Badge className={cn("text-[10px] shrink-0 border-0", m.tipo === "PREVENTIVA" ? "bg-green-100 text-green-700" : "bg-red-50 text-red-700")}>
+                      {m.tipo === "PREVENTIVA" ? "Preventiva" : "Corretiva"}
                     </Badge>
                   </div>
                 )

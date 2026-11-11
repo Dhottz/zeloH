@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import Anthropic from "@anthropic-ai/sdk"
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+import { anthropic, ZIA_MODEL, extrairTexto } from "@/services/ai/assistant"
 
 const SYSTEM_PROMPT = `Você é a Zia, assistente virtual do condomínio no ZeloH.
 Sua função é atender moradores com cordialidade, coletar informações sobre problemas e estruturar chamados.
@@ -24,18 +22,17 @@ export async function POST(req: NextRequest) {
     const { mensagens } = await req.json()
 
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 512,
+      model: ZIA_MODEL,
+      max_tokens: 4096,
+      output_config: { effort: "low" },
       system: SYSTEM_PROMPT,
       messages: mensagens,
     })
 
-    const bloco = response.content[0]
-    if (bloco.type !== "text") {
+    const texto = extrairTexto(response)
+    if (!texto) {
       return NextResponse.json({ resposta: "Não entendi. Pode repetir?" })
     }
-
-    const texto = bloco.text
 
     // Extrai chamado estruturado se presente
     const match = texto.match(/<<<CHAMADO>>>([\s\S]*?)<<<FIM>>>/)

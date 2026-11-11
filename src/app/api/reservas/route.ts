@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
+import { podeGerenciar } from "@/lib/permissions"
 import { criarNotificacaoZelador } from "@/lib/notificacao"
 import { z } from "zod"
 
@@ -162,7 +163,7 @@ export async function POST(req: NextRequest) {
         horaFim,
         observacao:   observacao ?? null,
         // Síndico/admin confirma automaticamente
-        status: ["SINDICO", "ADMIN", "PORTEIRO"].includes(session.role) ? "CONFIRMADA" : "PENDENTE",
+        status: (podeGerenciar(session.role) || session.role === "PORTEIRO") ? "CONFIRMADA" : "PENDENTE",
       },
       include: includeRelations,
     })

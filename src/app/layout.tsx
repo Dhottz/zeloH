@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Inter, Playfair_Display, Geist_Mono } from "next/font/google"
 import { AuthProvider } from "@/components/layout/auth-provider"
+import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 
 const inter = Inter({
@@ -66,6 +67,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <AuthProvider>{children}</AuthProvider>
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   )

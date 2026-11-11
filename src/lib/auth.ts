@@ -1,11 +1,9 @@
 import { SignJWT, jwtVerify } from "jose"
 import bcrypt from "bcryptjs"
 import { cookies } from "next/headers"
+import { getJwtSecret } from "./jwt-secret"
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? "zeloh-dev-secret-min-32-chars-ok!"
-)
-const COOKIE_NAME = "zeloh_token"
+export const COOKIE_NAME = "zeloh_token"
 const TOKEN_EXPIRY = "7d"
 
 // ─── Senha ────────────────────────────────────────────────────────────────────
@@ -21,11 +19,12 @@ export async function comparePassword(password: string, hash: string): Promise<b
 // ─── JWT ──────────────────────────────────────────────────────────────────────
 
 export interface JwtPayload {
-  sub: string        // userId
+  sub: string          // userId
   email: string
-  role: string
-  condominioId: string
+  role: string         // perfil no condomínio ativo
+  condominioId: string // condomínio ativo
   nome: string
+  prestadorId?: string | null
 }
 
 export async function createToken(payload: JwtPayload): Promise<string> {
@@ -33,12 +32,12 @@ export async function createToken(payload: JwtPayload): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(TOKEN_EXPIRY)
-    .sign(JWT_SECRET)
+    .sign(getJwtSecret())
 }
 
 export async function verifyToken(token: string): Promise<JwtPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET)
+    const { payload } = await jwtVerify(token, getJwtSecret())
     return payload as unknown as JwtPayload
   } catch {
     return null

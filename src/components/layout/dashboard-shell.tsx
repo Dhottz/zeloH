@@ -12,7 +12,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const closeSidebar = useCallback(() => setSidebarOpen(false), [])
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-background">
+    <div className="flex h-[100dvh] overflow-hidden bg-background print:block print:h-auto print:overflow-visible">
       {/* ── Overlay mobile ─────────────────────────────────────────────────── */}
       {sidebarOpen && (
         <div
@@ -29,7 +29,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           "fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out",
           // Desktop: posição relativa, sempre visível
           "lg:relative lg:translate-x-0 lg:z-auto lg:transition-none",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          sidebarOpen ? "translate-x-0" : "-translate-x-full",
+          "print:hidden"
         )}
       >
         <Sidebar onClose={closeSidebar} />
@@ -37,8 +38,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       {/* ── Main ─────────────────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Topbar onMenuClick={openSidebar} />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <div className="print:hidden"><Topbar onMenuClick={openSidebar} /></div>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 print:overflow-visible print:p-0">
           {children}
         </main>
       </div>

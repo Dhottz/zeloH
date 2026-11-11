@@ -8,9 +8,16 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { CategoryBadge } from "./category-badge"
+import { useState } from "react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { Home, Calendar, Hash, ChevronDown, Check } from "lucide-react"
+import { Home, Calendar, Hash, ChevronDown, Check, MapPin, Cog, Wrench, Star } from "lucide-react"
 import type { Chamado, ChamadoStatus } from "@/types/chamado"
+import { GaleriaArquivos } from "@/components/shared/arquivos-input"
+import { ManutencaoForm } from "@/components/manutencoes/manutencao-form"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/hooks/use-auth"
+import { podeOperar } from "@/lib/permissions"
 
 const STATUS_OPTIONS: { value: ChamadoStatus; label: string; color: string }[] = [
   { value: "ABERTO",               label: "Aberto",            color: "bg-gray-100 text-gray-700" },
@@ -44,7 +51,10 @@ function inferirCategoria(titulo: string): string {
 }
 
 export function ChamadoDetalheModal({ chamado, open, onClose, onStatusChange }: ChamadoDetalheModalProps) {
+  const { usuario, temModulo } = useAuth()
+  const [gerarOS, setGerarOS] = useState(false)
   if (!chamado) return null
+  const podeGerarOS = podeOperar(usuario?.role) && temModulo("manutencoes")
 
   const iniciais = chamado.morador.nome.split(" ").map((n) => n[0]).slice(0, 2).join("")
   const categoria = inferirCategoria(chamado.titulo)
@@ -88,6 +98,19 @@ export function ChamadoDetalheModal({ chamado, open, onClose, onStatusChange }: 
             </p>
           )}
 
+          {(chamado.local || chamado.equipamento) && (
+            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+              {chamado.local && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{chamado.local}</span>}
+              {chamado.equipamento && (
+                <Link href={`/equipamentos/${chamado.equipamento.id}`} className="flex items-center gap-1 text-primary hover:underline">
+                  <Cog className="w-3.5 h-3.5" />{chamado.equipamento.nome}
+                </Link>
+              )}
+            </div>
+          )}
+
+          {!!chamado.fotos?.length && <GaleriaArquivos arquivos={chamado.fotos} />}
+
           {/* Morador + localização */}
           <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40">
             <Avatar className="w-9 h-9 shrink-0">
@@ -110,6 +133,34 @@ export function ChamadoDetalheModal({ chamado, open, onClose, onStatusChange }: 
             <Calendar className="w-3.5 h-3.5" />
             <span>Aberto em {dataAbertura}</span>
           </div>
+
+          {/* Manutenções geradas a partir do chamado */}
+          {!!chamado.manutencoes?.length && (
+            <div className="space-y-1">
+              {chamado.manutencoes.map((m) => (
+                <Link key={m.id} href="/manutencoes" className="flex items-center gap-2 text-xs text-primary hover:underline">
+                  <Wrench className="w-3.5 h-3.5" /> OS: {m.titulo}
+                </Link>
+              ))}
+            </div>
+          )}
+          {podeGerarOS && !["CONCLUIDO", "CANCELADO"].includes(chamado.status) && (
+            <Button size="sm" variant="outline" onClick={() => setGerarOS(true)}>
+              <Wrench className="w-3.5 h-3.5 mr-1.5" /> Gerar ordem de serviço
+            </Button>
+          )}
+
+          {chamado.avaliacaoNota != null && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} className={cn("w-3.5 h-3.5", i < chamado.avaliacaoNota! ? "fill-amber-400 text-amber-400" : "text-amber-200")} />
+                ))}
+                <span className="text-xs text-amber-900 ml-1.5">avaliação do morador</span>
+              </div>
+              {chamado.avaliacaoComentario && <p className="text-xs text-amber-900 mt-1">&ldquo;{chamado.avaliacaoComentario}&rdquo;</p>}
+            </div>
+          )}
 
           {/* Status */}
           <div className="flex items-center justify-between pt-1 border-t border-border">
@@ -140,6 +191,21 @@ export function ChamadoDetalheModal({ chamado, open, onClose, onStatusChange }: 
           </div>
         </div>
       </DialogContent>
+      <ManutencaoForm
+        aberto={gerarOS}
+        onFechar={() => setGerarOS(false)}
+        onSalvo={() => {
+          setGerarOS(false)
+          if (chamado.status === "ABERTO") onStatusChange(chamado.id, "AGUARDANDO_PRESTADOR")
+        }}
+        padrao={{
+          chamadoId: chamado.id,
+          titulo: chamado.titulo,
+          descricao: [chamado.descricao, chamado.local && `Local: ${chamado.local}`].filter(Boolean).join(" — "),
+          equipamentoId: chamado.equipamentoId ?? undefined,
+          tipo: "CORRETIVA",
+        }}
+      />
     </Dialog>
   )
 }

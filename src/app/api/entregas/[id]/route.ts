@@ -1,114 +1,119 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
+import { notificarUsuarios } from "@/lib/notificacao"
+import { registrarAuditoria } from "@/lib/auditoria"
+import { serializarEncomenda } from "@/lib/encomendas"
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+type Params = { params: Promise<{ id: string }> }
+
+function equipe(role: string) {
+  return role !== "MORADOR" && role !== "PRESTADOR"
+}
+
+export async function DELETE(_req: NextRequest, { params }: Params) {
   const session = await getSession()
   if (!session) return NextResponse.json({ message: "Não autenticado" }, { status: 401 })
+  if (!equipe(session.role)) return NextResponse.json({ message: "Sem permissão" }, { status: 403 })
 
   const { id } = await params
-  const entrega = await prisma.documento.findFirst({
-    where: { id, condominioId: session.condominioId, tipo: "ENTREGA" },
-  })
-  if (!entrega) return NextResponse.json({ message: "Não encontrada" }, { status: 404 })
+  const encomenda = await prisma.encomenda.findFirst({ where: { id, condominioId: session.condominioId } })
+  if (!encomenda) return NextResponse.json({ message: "Não encontrada" }, { status: 404 })
 
-  await prisma.documento.delete({ where: { id } })
+  await prisma.encomenda.delete({ where: { id } })
+  await registrarAuditoria(session, "EXCLUIR", "Encomenda", id, `Excluiu encomenda de ${encomenda.destinatarioNome}`)
   return NextResponse.json({ ok: true })
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+/**
+ * PATCH — ações: "retirar" (registra quem retirou), "avisar" (reenvia notificação), "editar".
+ */
+export async function PATCH(req: NextRequest, { params }: Params) {
   const session = await getSession()
   if (!session) return NextResponse.json({ message: "Não autenticado" }, { status: 401 })
+  if (!equipe(session.role)) return NextResponse.json({ message: "Sem permissão" }, { status: 403 })
 
-  const { id }   = await params
-  const body     = await req.json()
-  const { acao } = body // "retirar" | "avisar" | "editar"
+  const { id } = await params
+  const body = await req.json().catch(() => ({}))
+  const { acao } = body as { acao?: string }
 
-  const entrega = await prisma.documento.findFirst({
-    where: { id, condominioId: session.condominioId, tipo: "ENTREGA" },
-  })
-  if (!entrega) return NextResponse.json({ message: "Não encontrada" }, { status: 404 })
+  const encomenda = await prisma.encomenda.findFirst({ where: { id, condominioId: session.condominioId } })
+  if (!encomenda) return NextResponse.json({ message: "Não encontrada" }, { status: 404 })
 
   if (acao === "retirar") {
-    if (entrega.nome.startsWith("RETIRADO:")) {
+    if (encomenda.status === "RETIRADA") {
       return NextResponse.json({ message: "Já foi marcada como retirada" }, { status: 400 })
     }
-
-    // Atualiza o conteudo JSON com timestamp de retirada
-    let conteudo: Record<string, unknown> = {}
-    if (entrega.conteudo) {
-      try { conteudo = JSON.parse(entrega.conteudo) } catch { /* ignora */ }
-    }
-    conteudo.retiradaEm  = new Date().toISOString()
-    conteudo.retiradoPor = session.sub
-
-    const atualizado = await prisma.documento.update({
+    const { retiradoPorNome } = body as { retiradoPorNome?: string }
+    const atualizado = await prisma.encomenda.update({
       where: { id },
       data: {
-        nome:     `RETIRADO: ${entrega.nome}`,
-        conteudo: JSON.stringify(conteudo),
+        status: "RETIRADA",
+        retiradaEm: new Date(),
+        retiradoPor: session.sub,
+        retiradoPorNome: retiradoPorNome?.trim() || encomenda.destinatarioNome,
       },
     })
-    return NextResponse.json(atualizado)
+    return NextResponse.json(serializarEncomenda(atualizado))
   }
 
   if (acao === "avisar") {
-    // TODO: integrar com sistema de notificações/chat interno
-    return NextResponse.json({ ok: true, mensagem: "Notificação registrada." })
+    if (!encomenda.destinatarioId) {
+      return NextResponse.json({ message: "Encomenda sem morador vinculado" }, { status: 400 })
+    }
+    await notificarUsuarios({
+      condominioId: session.condominioId,
+      usuarioIds:   [encomenda.destinatarioId],
+      titulo:       "📦 Lembrete: sua encomenda está na portaria",
+      descricao:    `${encomenda.remetente ? `De: ${encomenda.remetente}. ` : ""}Recebida em ${encomenda.createdAt.toLocaleDateString("pt-BR")}.`,
+      link:         "/morador/encomendas",
+    })
+    return NextResponse.json({ ok: true, mensagem: "Morador avisado." })
   }
 
   if (acao === "editar") {
-    const { destinatarioId, remetente, descricao, retirada } = body as {
+    const { destinatarioId, remetente, descricao, retirada, foto, codigoRastreio } = body as {
       destinatarioId?: string
       remetente?: string
       descricao?: string
       retirada?: boolean
+      foto?: string | null
+      codigoRastreio?: string
     }
 
-    let conteudo: Record<string, unknown> = {}
-    if (entrega.conteudo) {
-      try { conteudo = JSON.parse(entrega.conteudo) } catch { /* ignora */ }
+    const data: Record<string, unknown> = {
+      remetente: remetente?.trim() || null,
+      descricao: descricao?.trim() || null,
     }
+    if (foto !== undefined) data.foto = foto
+    if (codigoRastreio !== undefined) data.codigoRastreio = codigoRastreio?.trim() || null
 
-    // Destinatário
-    let destNome = entrega.nome.replace(/^RETIRADO:\s*/i, "").split(" · ")[0]
-    if (destinatarioId) {
+    if (destinatarioId && destinatarioId !== encomenda.destinatarioId) {
       const dest = await prisma.usuario.findFirst({
         where: { id: destinatarioId, condominioId: session.condominioId },
-        select: { nome: true, unidade: true },
+        select: { nome: true, unidade: true, bloco: true },
       })
       if (dest) {
-        destNome = dest.nome
-        conteudo.destinatarioId = destinatarioId
-        conteudo.unidade        = dest.unidade ?? null
+        data.destinatarioId = destinatarioId
+        data.destinatarioNome = dest.nome
+        data.unidade = dest.unidade
+        data.bloco = dest.bloco
       }
     }
 
-    // Campos editáveis
-    conteudo.remetente = remetente ?? ""
-    conteudo.descricao = descricao ?? null
-
-    // Status de retirada
-    const eraRetirada = entrega.nome.startsWith("RETIRADO:")
-    if (retirada === true && !eraRetirada) {
-      conteudo.retiradaEm  = new Date().toISOString()
-      conteudo.retiradoPor = session.sub
-    } else if (retirada === false && eraRetirada) {
-      conteudo.retiradaEm  = null
-      conteudo.retiradoPor = null
+    if (retirada === true && encomenda.status !== "RETIRADA") {
+      data.status = "RETIRADA"
+      data.retiradaEm = new Date()
+      data.retiradoPor = session.sub
+    } else if (retirada === false && encomenda.status === "RETIRADA") {
+      data.status = "AGUARDANDO"
+      data.retiradaEm = null
+      data.retiradoPor = null
+      data.retiradoPorNome = null
     }
 
-    const isRetirada = retirada !== undefined ? retirada : eraRetirada
-    const prefixo    = isRetirada ? "RETIRADO: " : ""
-    const novoNome   = remetente?.trim()
-      ? `${prefixo}${destNome} · ${remetente.trim()}`
-      : `${prefixo}${destNome}`
-
-    await prisma.documento.update({
-      where: { id },
-      data: { nome: novoNome, conteudo: JSON.stringify(conteudo) },
-    })
-    return NextResponse.json({ ok: true })
+    const atualizado = await prisma.encomenda.update({ where: { id }, data })
+    return NextResponse.json(serializarEncomenda(atualizado))
   }
 
   return NextResponse.json({ message: "Ação inválida" }, { status: 400 })

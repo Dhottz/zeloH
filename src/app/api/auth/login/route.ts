@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { comparePassword, createToken, setAuthCookie } from "@/lib/auth"
-import { SignJWT } from "jose"
+import { enviarConvite } from "@/lib/convite"
 import { z } from "zod"
-
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? "zeloh-dev-secret-min-32-chars-ok!"
-)
 
 const schema = z.object({
   email:    z.string().email(),
@@ -27,22 +23,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Credenciais inválidas" }, { status: 401 })
     }
 
-    // ── Primeiro acesso: morador ainda não definiu senha ──────────────────────
+    // ── Primeiro acesso: o usuário ainda não criou senha ──────────────────────
+    // O link para criar a senha vai só para o e-mail cadastrado (nunca na resposta),
+    // senão qualquer pessoa que soubesse o e-mail poderia assumir a conta.
     if (usuario.primeiroAcesso) {
-      // Gera token de setup com 24h de validade (não loga, apenas autoriza definir senha)
-      const setupToken = await new SignJWT({ sub: usuario.id, tipo: "setup-senha" })
-        .setProtectedHeader({ alg: "HS256" })
-        .setIssuedAt()
-        .setExpirationTime("24h")
-        .sign(JWT_SECRET)
-
+      const { enviado } = await enviarConvite(usuario, usuario.condominio.nome)
       return NextResponse.json(
-        { primeiroAcesso: true, setupToken },
-        { status: 200 }
+        {
+          message: enviado
+            ? "Seu acesso ainda não foi ativado. Enviamos um link para o seu e-mail para você criar a senha."
+            : "Seu acesso ainda não foi ativado. Peça ao síndico o link de convite para criar sua senha.",
+        },
+        { status: 403 }
       )
     }
 
-    // ── Login normal ──────────────────────────────────────────────────────────
     const senhaCorreta = await comparePassword(password, usuario.passwordHash)
     if (!senhaCorreta) {
       return NextResponse.json({ message: "Credenciais inválidas" }, { status: 401 })
@@ -54,18 +49,19 @@ export async function POST(req: NextRequest) {
       role:         usuario.role,
       condominioId: usuario.condominioId,
       nome:         usuario.nome,
+      prestadorId:  usuario.prestadorId,
     })
 
     await setAuthCookie(token)
 
     return NextResponse.json({
       usuario: {
-        id:        usuario.id,
-        nome:      usuario.nome,
-        email:     usuario.email,
-        role:      usuario.role,
-        unidade:   usuario.unidade,
-        bloco:     usuario.bloco,
+        id:         usuario.id,
+        nome:       usuario.nome,
+        email:      usuario.email,
+        role:       usuario.role,
+        unidade:    usuario.unidade,
+        bloco:      usuario.bloco,
         condominio: usuario.condominio,
       },
     })

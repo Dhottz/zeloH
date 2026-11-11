@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import {
   HardHat, Plus, Search, Loader2, MoreHorizontal,
   Pencil, PowerOff, Power, Phone, Mail, Trash2,
-  Briefcase, FileText,
+  Briefcase, FileText, Star,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,6 +18,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/use-auth"
+import { podeGerenciar } from "@/lib/permissions"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,9 @@ interface Prestador {
   observacoes: string | null
   ativo: boolean
   createdAt: string
+  avaliacaoMedia: number | null
+  avaliacoes: number
+  _count?: { contratos: number; manutencoes: number }
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -83,7 +87,7 @@ const initForm = {
 
 export default function PrestadoresPage() {
   const { usuario } = useAuth()
-  const isZelador   = usuario?.role === "ZELADOR" || usuario?.role === "PORTEIRO"
+  const isZelador = !podeGerenciar(usuario?.role)
 
   const [prestadores, setPrestadores] = useState<Prestador[]>([])
   const [total, setTotal]             = useState(0)
@@ -360,6 +364,18 @@ export default function PrestadoresPage() {
                             Inativo
                           </span>
                         )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5 text-[11px] text-muted-foreground">
+                        {p.avaliacaoMedia != null ? (
+                          <span className="flex items-center gap-0.5 text-amber-600 font-medium">
+                            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                            {p.avaliacaoMedia.toFixed(1)} <span className="text-muted-foreground font-normal">({p.avaliacoes})</span>
+                          </span>
+                        ) : (
+                          <span>Sem avaliações</span>
+                        )}
+                        {!!p._count?.manutencoes && <span>{p._count.manutencoes} serviço(s)</span>}
+                        {!!p._count?.contratos && <span>{p._count.contratos} contrato(s) ativo(s)</span>}
                       </div>
                     </div>
                     {!isZelador && (

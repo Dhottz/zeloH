@@ -4,8 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import {
   CalendarClock, Megaphone, AlertCircle, Package,
-  ChevronRight, Clock, CheckCircle2, XCircle, Pin,
-} from "lucide-react"
+  ChevronRight, Clock, CheckCircle2, XCircle, Pin, Vote } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/use-auth"
 import { cn, fetchJson } from "@/lib/utils"
@@ -143,10 +142,10 @@ export default function MoradorHomePage() {
               bg: "bg-orange-50",
             },
             {
-              label: "Entregas",
+              label: "Encomendas na portaria",
               value: summary?.stats.entregasAguardando ?? "–",
               icon: <Package className="w-4 h-4" />,
-              href: undefined,
+              href: "/morador/encomendas",
               color: "text-green-600",
               bg: "bg-green-50",
             },
@@ -169,6 +168,16 @@ export default function MoradorHomePage() {
             )
           })}
         </div>
+        <Link
+          href="/morador/enquetes"
+          className="mt-3 flex items-center gap-3 rounded-2xl border border-border bg-background p-3 shadow-sm"
+        >
+          <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center"><Vote className="w-4 h-4 text-primary" /></div>
+          <div className="flex-1">
+            <p className="text-sm font-medium">Enquetes do condomínio</p>
+            <p className="text-xs text-muted-foreground">Dê sua opinião nas votações abertas</p>
+          </div>
+        </Link>
       </div>
 
       {/* Próximas Reservas */}

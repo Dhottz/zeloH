@@ -3,8 +3,10 @@
 import { useEffect, useState, useCallback } from "react"
 import {
   AlertCircle, Plus, Loader2, Clock,
-  CheckCircle2, XCircle, Zap, ChevronDown, ChevronUp,
+  CheckCircle2, XCircle, Zap, ChevronDown, ChevronUp, Star, MapPin,
 } from "lucide-react"
+import { toast } from "sonner"
+import { ArquivosInput, GaleriaArquivos } from "@/components/shared/arquivos-input"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,6 +29,10 @@ interface Chamado {
   prioridade: ChamadoPrioridade
   createdAt: string
   resolvidoEm: string | null
+  local?: string | null
+  fotos?: string[]
+  avaliacaoNota?: number | null
+  avaliacaoComentario?: string | null
   morador: { id: string; nome: string; unidade: string | null }
 }
 
@@ -59,7 +65,55 @@ function fmtRelativo(iso: string) {
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
-function ChamadoCard({ c, onCancel }: { c: Chamado; onCancel: (id: string) => void }) {
+function Avaliar({ c, onAvaliado }: { c: Chamado; onAvaliado: () => void }) {
+  const [nota, setNota] = useState(0)
+  const [comentario, setComentario] = useState("")
+  const [enviando, setEnviando] = useState(false)
+
+  if (c.avaliacaoNota) {
+    return (
+      <div className="flex items-center gap-0.5 text-xs text-muted-foreground">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Star key={i} className={cn("w-3.5 h-3.5", i < c.avaliacaoNota! ? "fill-amber-400 text-amber-400" : "text-muted")} />
+        ))}
+        <span className="ml-1.5">Obrigado pela avaliação!</span>
+      </div>
+    )
+  }
+
+  const enviar = async () => {
+    setEnviando(true)
+    const res = await fetch(`/api/chamados/${c.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ avaliacaoNota: nota, avaliacaoComentario: comentario || null }),
+    })
+    setEnviando(false)
+    if (res.ok) { toast.success("Avaliação enviada"); onAvaliado() }
+    else toast.error("Não foi possível enviar a avaliação")
+  }
+
+  return (
+    <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-2">
+      <p className="text-xs font-medium text-amber-900">Como foi o atendimento?</p>
+      <div className="flex gap-1">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <button key={i} type="button" onClick={() => setNota(i + 1)} aria-label={`${i + 1} estrelas`}>
+            <Star className={cn("w-7 h-7", i < nota ? "fill-amber-400 text-amber-400" : "text-amber-200")} />
+          </button>
+        ))}
+      </div>
+      {nota > 0 && (
+        <>
+          <Input value={comentario} onChange={(e) => setComentario(e.target.value)} placeholder="Comentário (opcional)" className="rounded-xl bg-background" />
+          <Button size="sm" onClick={enviar} disabled={enviando} className="rounded-xl w-full">Enviar avaliação</Button>
+        </>
+      )}
+    </div>
+  )
+}
+
+function ChamadoCard({ c, onCancel, onAtualizado }: { c: Chamado; onCancel: (id: string) => void; onAtualizado: () => void }) {
   const [expandido, setExpandido] = useState(false)
   const sc = STATUS_CONFIG[c.status]
   const pc = PRIOR_CONFIG[c.prioridade]
@@ -95,13 +149,21 @@ function ChamadoCard({ c, onCancel }: { c: Chamado; onCancel: (id: string) => vo
             <p className="text-sm text-muted-foreground italic">Sem descrição adicional</p>
           )}
 
+          {c.local && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />{c.local}</p>
+          )}
+
+          {!!c.fotos?.length && <GaleriaArquivos arquivos={c.fotos} tamanho="sm" />}
+
           {c.resolvidoEm && (
             <p className="text-xs text-green-700">
               ✓ Resolvido em {new Date(c.resolvidoEm).toLocaleDateString("pt-BR")}
             </p>
           )}
 
-          {ativo && (
+          {c.status === "CONCLUIDO" && <Avaliar c={c} onAvaliado={onAtualizado} />}
+
+          {c.status === "ABERTO" && (
             <button
               onClick={() => onCancel(c.id)}
               className="w-full text-xs text-red-600 border border-red-200 bg-red-50 rounded-xl py-1.5 font-medium hover:bg-red-100 transition-colors"
@@ -130,6 +192,8 @@ export default function MoradorOcorrenciasPage() {
   const [erro, setErro]               = useState("")
   const [titulo, setTitulo]           = useState("")
   const [descricao, setDescricao]     = useState("")
+  const [local, setLocal]             = useState("")
+  const [fotos, setFotos]             = useState<string[]>([])
   const [prioridade, setPrioridade]   = useState<ChamadoPrioridade>("MEDIA")
 
   const carregar = useCallback(async () => {
@@ -149,12 +213,12 @@ export default function MoradorOcorrenciasPage() {
       const res = await fetch("/api/chamados", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ titulo, descricao, prioridade }),
+        body: JSON.stringify({ titulo, descricao, prioridade, local: local || null, fotos }),
       })
       const json = await res.json()
       if (!res.ok) { setErro(json.message ?? "Erro ao abrir chamado"); return }
       setModalAberto(false)
-      setTitulo(""); setDescricao(""); setPrioridade("MEDIA")
+      setTitulo(""); setDescricao(""); setPrioridade("MEDIA"); setLocal(""); setFotos([])
       carregar()
     } catch {
       setErro("Erro ao abrir chamado")
@@ -228,7 +292,7 @@ export default function MoradorOcorrenciasPage() {
             <p className="text-xs text-muted-foreground mt-1">Toque em "Nova" para abrir um chamado</p>
           </div>
         ) : (
-          exibidos.map((c) => <ChamadoCard key={c.id} c={c} onCancel={handleCancel} />)
+          exibidos.map((c) => <ChamadoCard key={c.id} c={c} onCancel={handleCancel} onAtualizado={carregar} />)
         )}
       </div>
 
@@ -261,6 +325,16 @@ export default function MoradorOcorrenciasPage() {
                 rows={3}
                 className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="local" className="text-sm font-medium">Onde?</Label>
+              <Input id="local" value={local} onChange={(e) => setLocal(e.target.value)} placeholder="Ex: Garagem, bloco B, 2º subsolo" className="rounded-xl" />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Fotos</Label>
+              <ArquivosInput valor={fotos} onChange={setFotos} pasta="chamados" max={4} rotulo="Tirar ou anexar foto" />
             </div>
 
             <div className="space-y-1.5">

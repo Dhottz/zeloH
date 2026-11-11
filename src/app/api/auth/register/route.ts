@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       const condominio = await tx.condominio.create({
         data: {
           nome: condominioNome,
-          cnpj: condominioCnpj ?? null,
+          cnpj: condominioCnpj ? condominioCnpj.replace(/\D/g, "") || null : null,
         },
       })
 

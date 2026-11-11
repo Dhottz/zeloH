@@ -1,22 +1,33 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
-import { criarNotificacaoZelador } from "@/lib/notificacao"
+import { criarNotificacaoZelador, notificarPainel } from "@/lib/notificacao"
 import { z } from "zod"
 
 const criarSchema = z.object({
-  titulo:     z.string().min(3),
-  descricao:  z.string().optional(),
-  prioridade: z.enum(["BAIXA", "MEDIA", "ALTA", "URGENTE"]).default("MEDIA"),
-  moradorId:  z.string().uuid().optional(), // opcional: moradores usam session.sub
+  titulo:        z.string().min(3),
+  descricao:     z.string().optional(),
+  prioridade:    z.enum(["BAIXA", "MEDIA", "ALTA", "URGENTE"]).default("MEDIA"),
+  local:         z.string().optional().nullable(),
+  fotos:         z.array(z.string()).max(6).default([]),
+  equipamentoId: z.string().uuid().optional().nullable(),
+  moradorId:     z.string().uuid().optional(), // opcional: moradores usam session.sub
 })
+
+const INCLUDE = {
+  morador:     { select: { id: true, nome: true, unidade: true, bloco: true } },
+  equipamento: { select: { id: true, nome: true } },
+  manutencoes: { select: { id: true, titulo: true, status: true } },
+} as const
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getSession()
     if (!session) return NextResponse.json({ message: "Não autenticado" }, { status: 401 })
+    if (session.role === "PRESTADOR") return NextResponse.json({ message: "Sem permissão" }, { status: 403 })
 
-    const minhas      = req.nextUrl.searchParams.get("minhas") === "true"
+    // Morador só enxerga os próprios chamados (dados de vizinhos são privados)
+    const minhas      = session.role === "MORADOR" || req.nextUrl.searchParams.get("minhas") === "true"
     const busca       = req.nextUrl.searchParams.get("busca") ?? ""
     const prioridade  = req.nextUrl.searchParams.get("prioridade") ?? ""
     const statusParam = req.nextUrl.searchParams.get("status")
@@ -29,12 +40,9 @@ export async function GET(req: NextRequest) {
         ...(prioridade ? { prioridade: prioridade as "BAIXA" | "MEDIA" | "ALTA" | "URGENTE" } : {}),
       },
       orderBy: { createdAt: "desc" },
-      include: {
-        morador: { select: { id: true, nome: true, unidade: true, bloco: true } },
-      },
+      include: INCLUDE,
     })
 
-    // Filter by status in JS to avoid Prisma enum filter issues
     const chamados = statusParam
       ? rawChamados.filter((c) => c.status === statusParam)
       : rawChamados.filter((c) => c.status !== "ARQUIVADO")
@@ -57,29 +65,49 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getSession()
   if (!session) return NextResponse.json({ message: "Não autenticado" }, { status: 401 })
+  if (session.role === "PRESTADOR") return NextResponse.json({ message: "Sem permissão" }, { status: 403 })
 
   try {
     const body = await req.json()
     const parsed = criarSchema.parse(body)
 
-    // Morador cria chamado para si mesmo; sindico/zelador podem especificar moradorId
-    const moradorId = parsed.moradorId ?? session.sub
+    // Morador cria chamado para si mesmo; a equipe pode abrir em nome de um morador
+    const moradorId = session.role === "MORADOR" ? session.sub : parsed.moradorId ?? session.sub
+    if (moradorId !== session.sub) {
+      const dono = await prisma.usuario.findFirst({ where: { id: moradorId, condominioId: session.condominioId } })
+      if (!dono) return NextResponse.json({ message: "Morador não encontrado" }, { status: 404 })
+    }
+    const equipamento = parsed.equipamentoId
+      ? await prisma.equipamento.findFirst({ where: { id: parsed.equipamentoId, condominioId: session.condominioId }, select: { id: true } })
+      : null
+
+    // Fotos só podem vir do storage deste condomínio
+    const fotos = parsed.fotos.filter((f) => f.startsWith(`${session.condominioId}/`))
 
     const chamado = await prisma.chamado.create({
       data: {
-        titulo:       parsed.titulo,
-        descricao:    parsed.descricao,
-        prioridade:   parsed.prioridade,
+        titulo:        parsed.titulo,
+        descricao:     parsed.descricao,
+        prioridade:    parsed.prioridade,
+        local:         parsed.local ?? null,
+        fotos,
+        equipamentoId: equipamento?.id ?? null,
         moradorId,
-        condominioId: session.condominioId,
-        status:       "ABERTO",
+        condominioId:  session.condominioId,
+        status:        "ABERTO",
       },
-      include: {
-        morador: { select: { id: true, nome: true, unidade: true, bloco: true } },
-      },
+      include: INCLUDE,
     })
 
-    if (session.role === "ZELADOR" || session.role === "PORTEIRO") {
+    if (session.role === "MORADOR") {
+      await notificarPainel({
+        condominioId: session.condominioId,
+        titulo:       `Nova ocorrência: ${parsed.titulo}`,
+        descricao:    `${session.nome}${chamado.morador.unidade ? ` · Apto ${chamado.morador.unidade}` : ""}${fotos.length ? ` · ${fotos.length} foto(s)` : ""}`,
+        link:         "/ocorrencias",
+        autorNome:    session.nome,
+      })
+    } else if (session.role === "ZELADOR" || session.role === "PORTEIRO") {
       await criarNotificacaoZelador({
         condominioId: session.condominioId,
         titulo:       `Novo chamado aberto`,

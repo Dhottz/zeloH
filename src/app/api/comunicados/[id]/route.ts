@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
+import { podeGerenciar } from "@/lib/permissions"
+import { registrarAuditoria } from "@/lib/auditoria"
+import { notificarComunicado } from "@/lib/comunicados"
 import { z } from "zod"
 
 const updateSchema = z.object({
@@ -14,6 +17,8 @@ const updateSchema = z.object({
   destinatario: z.enum(["TODOS", "BLOCOS", "UNIDADES"]).optional(),
   blocos:       z.array(z.string()).optional(),
   unidades:     z.array(z.string()).optional(),
+  publicarEm:   z.string().optional().nullable(),
+  anexos:       z.array(z.string()).optional(),
 })
 
 type Params = { params: Promise<{ id: string }> }
@@ -22,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const session = await getSession()
   if (!session) return NextResponse.json({ message: "Não autenticado" }, { status: 401 })
 
-  if (session.role !== "SINDICO" && session.role !== "ADMIN") {
+  if (!podeGerenciar(session.role)) {
     return NextResponse.json({ message: "Sem permissão" }, { status: 403 })
   }
 
@@ -44,7 +49,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     })
     if (!existe) return NextResponse.json({ message: "Comunicado não encontrado" }, { status: 404 })
 
-    const { expiraEm, destinatario, blocos, unidades, ...rest } = parsed.data
+    const { expiraEm, publicarEm, destinatario, blocos, unidades, ...rest } = parsed.data
 
     // Limpa blocos/unidades conforme destinatario
     const dest = destinatario ?? existe.destinatario
@@ -57,9 +62,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         ...rest,
         ...(destinatario !== undefined ? { destinatario, blocos: blocosFinal, unidades: unidadesFinal } : {}),
         ...(expiraEm !== undefined ? { expiraEm: expiraEm ? new Date(expiraEm) : null } : {}),
+        ...(publicarEm !== undefined ? { publicarEm: publicarEm ? new Date(publicarEm) : null } : {}),
       },
       include: { autor: { select: { id: true, nome: true, role: true } } },
     })
+
+    await notificarComunicado(atualizado)
+    if (parsed.data.publicado && !existe.publicado) {
+      await registrarAuditoria(session, "PUBLICAR", "Comunicado", id, `Publicou o comunicado "${existe.titulo}"`)
+    }
 
     return NextResponse.json(atualizado)
   } catch (error) {
@@ -72,7 +83,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const session = await getSession()
   if (!session) return NextResponse.json({ message: "Não autenticado" }, { status: 401 })
 
-  if (session.role !== "SINDICO" && session.role !== "ADMIN") {
+  if (!podeGerenciar(session.role)) {
     return NextResponse.json({ message: "Sem permissão" }, { status: 403 })
   }
 
@@ -85,6 +96,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     if (!existe) return NextResponse.json({ message: "Comunicado não encontrado" }, { status: 404 })
 
     await prisma.comunicado.delete({ where: { id } })
+    await registrarAuditoria(session, "EXCLUIR", "Comunicado", id, `Excluiu o comunicado "${existe.titulo}"`)
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error("[DELETE /api/comunicados/[id]]", error)

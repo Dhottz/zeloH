@@ -26,4 +26,11 @@ export interface Chamado {
   morador: ChamadoMorador
   visttoOsId?: string | null
   visttoOsCod?: string | null
+  local?: string | null
+  fotos?: string[]
+  equipamentoId?: string | null
+  equipamento?: { id: string; nome: string } | null
+  manutencoes?: { id: string; titulo: string; status: string }[]
+  avaliacaoNota?: number | null
+  avaliacaoComentario?: string | null
 }

@@ -6,6 +6,7 @@ import Link from "next/link"
 import { LogOut, Lock, ChevronDown, Building2, Eye, EyeOff, Loader2, CheckCircle2, User } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { cn } from "@/lib/utils"
+import { MoradorSino } from "./morador-sino"
 
 // ─── Mini painel de perfil ─────────────────────────────────────────────────
 
@@ -234,7 +235,9 @@ export function MoradorHeader() {
           )}
         </div>
 
-        {/* Avatar + dropdown */}
+        {/* Notificações + avatar */}
+        <div className="flex items-center gap-1 shrink-0">
+        <MoradorSino />
         <div className="relative shrink-0">
           <button
             onClick={() => setAberto(v => !v)}
@@ -256,6 +259,7 @@ export function MoradorHeader() {
           </button>
 
           {aberto && <PerfilPanel onClose={() => setAberto(false)} />}
+        </div>
         </div>
       </div>
     </header>

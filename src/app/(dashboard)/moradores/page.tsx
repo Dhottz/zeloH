@@ -3,8 +3,10 @@
 import { useEffect, useState, useCallback, useMemo } from "react"
 import {
   Users, UserPlus, Search, Loader2, MoreHorizontal,
-  Pencil, PowerOff, Power, Phone, Home, ShieldCheck,
+  Pencil, PowerOff, Power, Phone, Home, ShieldCheck, Link2,
 } from "lucide-react"
+import { toast } from "sonner"
+import { NativeSelect } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -25,7 +27,8 @@ interface Morador {
   id: string
   nome: string
   email: string
-  role: "MORADOR" | "ZELADOR" | "PORTEIRO" | "SINDICO"
+  role: RoleUsuario
+  prestadorId?: string | null
   unidade: string | null
   bloco: string | null
   telefone: string | null
@@ -39,7 +42,9 @@ interface Totais {
   _count: { _all: number }
 }
 
-type Filtro = "todos" | "MORADOR" | "ZELADOR" | "PORTEIRO" | "SINDICO"
+type RoleUsuario = "MORADOR" | "ZELADOR" | "PORTEIRO" | "PRESTADOR" | "CONSELHO" | "SUBSINDICO" | "SINDICO"
+type Filtro = "todos" | RoleUsuario
+const ROLES_FORM: RoleUsuario[] = ["MORADOR", "ZELADOR", "PORTEIRO", "PRESTADOR", "CONSELHO", "SUBSINDICO", "SINDICO"]
 type StatusFiltro = "ativos" | "inativos" | "todos"
 
 const ROLE_CONFIG: Record<string, { label: string; plural: string; color: string }> = {
@@ -47,9 +52,12 @@ const ROLE_CONFIG: Record<string, { label: string; plural: string; color: string
   ZELADOR:  { label: "Zelador",  plural: "Zeladores",  color: "bg-amber-50 text-amber-700 border-amber-200" },
   PORTEIRO: { label: "Porteiro", plural: "Porteiros",  color: "bg-sky-50 text-sky-700 border-sky-200" },
   MORADOR:  { label: "Morador",  plural: "Moradores",  color: "bg-muted text-muted-foreground border-border" },
+  SUBSINDICO: { label: "Subsíndico", plural: "Subsíndicos", color: "bg-primary/10 text-primary border-primary/20" },
+  CONSELHO:   { label: "Conselho",   plural: "Conselho",    color: "bg-violet-50 text-violet-700 border-violet-200" },
+  PRESTADOR:  { label: "Prestador",  plural: "Prestadores", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
 }
 
-const initForm = { nome: "", email: "", role: "MORADOR" as Morador["role"], unidade: "", bloco: "", telefone: "" }
+const initForm = { nome: "", email: "", role: "MORADOR" as Morador["role"], unidade: "", bloco: "", telefone: "", prestadorId: "" }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -73,6 +81,21 @@ export default function MoradoresPage() {
 
   // Blocos configurados (carregados do condomínio)
   const [blocos, setBlocos] = useState<string[]>([])
+  const [prestadores, setPrestadores] = useState<{ id: string; nome: string }[]>([])
+
+  useEffect(() => {
+    fetch("/api/prestadores").then(r => r.ok ? r.json() : { prestadores: [] }).then(d => setPrestadores(d.prestadores ?? []))
+  }, [])
+
+  const copiarConvite = async (m: Morador) => {
+    const res = await fetch(`/api/moradores/${m.id}/convite`, { method: "POST" })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.message ?? "Erro ao gerar convite"); return }
+    try { await navigator.clipboard.writeText(data.link) } catch { /* sem permissão de clipboard */ }
+    toast.success(data.enviado ? "Convite reenviado por e-mail e link copiado" : "Link de convite copiado — envie ao usuário", {
+      description: data.enviado ? undefined : data.link,
+    })
+  }
 
   const showFeedback = (type: "ok" | "erro", text: string) => {
     setFeedback({ type, text })
@@ -138,7 +161,7 @@ export default function MoradoresPage() {
   // Abre modal para editar
   const abrirEditar = (m: Morador) => {
     setEditando(m)
-    setForm({ nome: m.nome, email: m.email, role: m.role, unidade: m.unidade ?? "", bloco: m.bloco ?? "", telefone: m.telefone ?? "" })
+    setForm({ nome: m.nome, email: m.email, role: m.role, unidade: m.unidade ?? "", bloco: m.bloco ?? "", telefone: m.telefone ?? "", prestadorId: m.prestadorId ?? "" })
     setModalAberto(true)
   }
 
@@ -151,6 +174,7 @@ export default function MoradoresPage() {
         email: form.email || undefined,
         unidade: form.unidade || null, bloco: form.bloco || null,
         telefone: form.telefone || null,
+        prestadorId: form.role === "PRESTADOR" ? form.prestadorId || null : null,
       }
 
       const url    = editando ? `/api/moradores/${editando.id}` : "/api/moradores"
@@ -160,7 +184,7 @@ export default function MoradoresPage() {
       const json = await res.json()
 
       if (res.ok) {
-        showFeedback("ok", editando ? "Dados atualizados!" : "Morador cadastrado!")
+        showFeedback("ok", editando ? "Dados atualizados!" : json.conviteEnviado ? "Cadastrado! Convite de acesso enviado por e-mail." : "Cadastrado! Use \"Copiar convite\" para enviar o acesso.")
         setModalAberto(false)
         fetchMoradores()
       } else {
@@ -284,7 +308,7 @@ export default function MoradoresPage() {
 
         {/* Filtro por papel */}
         <div className="flex gap-1 rounded-lg border bg-muted/30 p-1">
-          {(["todos", "MORADOR", "ZELADOR", "PORTEIRO", "SINDICO"] as const).map((r) => (
+          {(["todos", ...ROLES_FORM] as const).map((r) => (
             <button
               key={r}
               onClick={() => setFiltroRole(r)}
@@ -400,6 +424,11 @@ export default function MoradoresPage() {
                           <DropdownMenuItem onClick={() => abrirEditar(m)}>
                             <Pencil className="h-4 w-4 mr-2" /> Editar
                           </DropdownMenuItem>
+                          {m.primeiroAcesso && m.isActive && !m.email.endsWith("@zeloh.internal") && (
+                            <DropdownMenuItem onClick={() => copiarConvite(m)}>
+                              <Link2 className="h-4 w-4 mr-2" /> Copiar convite
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             onClick={() => handleToggleAtivo(m)}
                             className={m.isActive ? "text-destructive focus:text-destructive" : "text-green-700 focus:text-green-700"}
@@ -487,12 +516,13 @@ export default function MoradoresPage() {
             {/* Papel */}
             <div className="space-y-1.5">
               <Label>Papel</Label>
-              <div className="flex gap-2">
-                {(["MORADOR", "ZELADOR", "PORTEIRO", "SINDICO"] as const).map((r) => (
+              <div className="grid grid-cols-4 gap-2">
+                {ROLES_FORM.map((r) => (
                   <button
                     key={r}
+                    type="button"
                     onClick={() => setForm((f) => ({ ...f, role: r }))}
-                    className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                    className={`py-2 rounded-lg text-xs font-medium border transition-colors ${
                       form.role === r
                         ? "border-primary bg-primary/10 text-primary"
                         : "border-border bg-background text-muted-foreground hover:text-foreground"
@@ -502,7 +532,21 @@ export default function MoradoresPage() {
                   </button>
                 ))}
               </div>
+              {form.role === "CONSELHO" && (
+                <p className="text-xs text-muted-foreground">Conselho vê tudo, aprova orçamentos e despesas, mas não edita cadastros.</p>
+              )}
             </div>
+
+            {form.role === "PRESTADOR" && (
+              <div className="space-y-1.5">
+                <Label>Empresa / prestador vinculado</Label>
+                <NativeSelect value={form.prestadorId} onChange={(e) => setForm((f) => ({ ...f, prestadorId: e.target.value }))}>
+                  <option value="">Selecione...</option>
+                  {prestadores.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                </NativeSelect>
+                <p className="text-xs text-muted-foreground">O prestador vê só as manutenções atribuídas a ele e registra execução, fotos e checklist.</p>
+              </div>
+            )}
           </div>
 
           <DialogFooter>

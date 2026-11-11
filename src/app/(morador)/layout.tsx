@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Megaphone, Sparkles, CalendarClock, AlertCircle, Building2 } from "lucide-react"
+import { Home, Megaphone, Sparkles, CalendarClock, AlertCircle, Building2, Package, Vote } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MoradorHeader } from "@/components/morador/morador-header"
 import { useAuth } from "@/hooks/use-auth"
@@ -15,6 +15,12 @@ const NAV_ITEMS = [
   { href: "/morador/zia",         label: "Zia",         icon: Sparkles,   special: true },
   { href: "/morador/ocorrencias", label: "Ocorrências", icon: AlertCircle },
   { href: "/morador/reservas",    label: "Reservas",    icon: CalendarClock },
+]
+
+// Itens extras só na sidebar (desktop); no celular ficam como atalhos na tela inicial
+const NAV_EXTRAS = [
+  { href: "/morador/encomendas", label: "Encomendas", icon: Package },
+  { href: "/morador/enquetes",   label: "Enquetes",   icon: Vote },
 ]
 
 // ─── Sidebar (desktop/tablet) ─────────────────────────────────────────────────
@@ -52,7 +58,7 @@ function MoradorSidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
-        {NAV_ITEMS.map(({ href, label, icon: Icon, special }) => {
+        {[...NAV_ITEMS, ...NAV_EXTRAS.map((i) => ({ ...i, special: false }))].map(({ href, label, icon: Icon, special }) => {
           const isActive =
             href === "/morador"
               ? pathname === "/morador"

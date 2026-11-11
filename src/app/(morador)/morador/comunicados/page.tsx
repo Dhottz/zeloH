@@ -18,6 +18,7 @@ interface Comunicado {
   fixado: boolean
   createdAt: string
   expiraEm: string | null
+  lido?: boolean
   autor: { nome: string }
 }
 
@@ -57,6 +58,15 @@ function fmtData(iso: string) {
 
 function ComunicadoCard({ c }: { c: Comunicado }) {
   const [expandido, setExpandido] = useState(false)
+  const [lido, setLido] = useState(!!c.lido)
+
+  const abrir = () => {
+    setExpandido((v) => !v)
+    if (!lido) {
+      setLido(true)
+      fetch(`/api/comunicados/${c.id}/leitura`, { method: "POST" }).catch(() => {})
+    }
+  }
 
   return (
     <div className={cn(
@@ -65,7 +75,7 @@ function ComunicadoCard({ c }: { c: Comunicado }) {
     )}>
       <button
         className="w-full text-left p-4"
-        onClick={() => setExpandido((v) => !v)}
+        onClick={abrir}
       >
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0">
@@ -73,6 +83,9 @@ function ComunicadoCard({ c }: { c: Comunicado }) {
               <Badge className={cn("text-[10px] border", TIPO_COLOR[c.tipo])}>
                 {TIPO_LABEL[c.tipo]}
               </Badge>
+              {!lido && (
+                <Badge className="text-[10px] border bg-primary text-primary-foreground border-primary">Novo</Badge>
+              )}
               {c.fixado && (
                 <Badge className="text-[10px] border bg-gray-50 text-gray-600 border-gray-200 flex items-center gap-0.5">
                   <Pin className="w-2.5 h-2.5" /> Fixado

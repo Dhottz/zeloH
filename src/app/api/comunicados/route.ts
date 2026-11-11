@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
+import { podeGerenciar } from "@/lib/permissions"
+import { registrarAuditoria } from "@/lib/auditoria"
+import { notificarComunicado, ehDestinatario } from "@/lib/comunicados"
 import { z } from "zod"
 
 const createSchema = z.object({
@@ -13,6 +16,8 @@ const createSchema = z.object({
   destinatario: z.enum(["TODOS", "BLOCOS", "UNIDADES"]).default("TODOS"),
   blocos:       z.array(z.string()).default([]),
   unidades:     z.array(z.string()).default([]),
+  publicarEm:   z.string().optional().nullable(),
+  anexos:       z.array(z.string()).default([]),
 })
 
 const autorSelect = { select: { id: true, nome: true, role: true } }
@@ -33,7 +38,7 @@ export async function GET(req: NextRequest) {
 
   try {
     // ── Auto-arquivar comunicados publicados expirados ──────────────────────
-    if (session.role === "SINDICO" || session.role === "ADMIN") {
+    if (podeGerenciar(session.role) || session.role === "CONSELHO") {
       await prisma.comunicado.updateMany({
         where: {
           condominioId: session.condominioId,
@@ -69,14 +74,17 @@ export async function GET(req: NextRequest) {
       targetingFilter = { OR: orClauses }
     }
 
-    // Moradores nunca veem arquivados
-    const arquivadoFilter = session.role === "MORADOR" ? { arquivado: false } : {}
+    // Moradores só veem o que está no ar: publicado, não arquivado e já na data agendada
+    const ehMorador = session.role === "MORADOR"
+    const moradorFilter = ehMorador
+      ? { arquivado: false, publicado: true, AND: [{ OR: [{ publicarEm: null }, { publicarEm: { lte: new Date() } }] }] }
+      : {}
 
     const comunicados = await prisma.comunicado.findMany({
       where: {
         condominioId: session.condominioId,
         ...(tipo      ? { tipo: tipo as "GERAL" | "URGENTE" | "AVISO" | "EVENTO" } : {}),
-        ...(publicado !== null ? { publicado: publicado === "true" } : {}),
+        ...(publicado !== null && !ehMorador ? { publicado: publicado === "true" } : {}),
         ...(busca ? {
           OR: [
             { titulo:   { contains: busca, mode: "insensitive" } },
@@ -84,13 +92,36 @@ export async function GET(req: NextRequest) {
           ],
         } : {}),
         ...targetingFilter,
-        ...arquivadoFilter,
+        ...moradorFilter,
       },
-      include: { autor: autorSelect },
+      include: {
+        autor: autorSelect,
+        leituras: { where: { usuarioId: session.sub }, select: { lidoEm: true } },
+        _count: { select: { leituras: true } },
+      },
       orderBy: [{ fixado: "desc" }, { createdAt: "desc" }],
     })
 
-    return NextResponse.json({ comunicados })
+    if (ehMorador) {
+      return NextResponse.json({
+        comunicados: comunicados.map(({ leituras, _count, ...c }) => ({
+          ...c,
+          lido: leituras.length > 0,
+        })),
+      })
+    }
+
+    // Equipe: quantos destinatários cada comunicado tem (para "lido por X de Y")
+    const moradores = await prisma.usuario.findMany({
+      where: { condominioId: session.condominioId, role: "MORADOR", isActive: true },
+      select: { bloco: true, unidade: true },
+    })
+    return NextResponse.json({
+      comunicados: comunicados.map(({ leituras: _l, ...c }) => ({
+        ...c,
+        totalDestinatarios: moradores.filter((m) => ehDestinatario(c, m)).length,
+      })),
+    })
   } catch (error) {
     console.error("[GET /api/comunicados]", error)
     return NextResponse.json({ message: "Erro interno" }, { status: 500 })
@@ -101,7 +132,7 @@ export async function POST(req: NextRequest) {
   const session = await getSession()
   if (!session) return NextResponse.json({ message: "Não autenticado" }, { status: 401 })
 
-  if (session.role !== "SINDICO" && session.role !== "ADMIN") {
+  if (!podeGerenciar(session.role)) {
     return NextResponse.json({ message: "Sem permissão" }, { status: 403 })
   }
 
@@ -127,11 +158,20 @@ export async function POST(req: NextRequest) {
         blocos:       blocosFinal,
         unidades:     unidadesFinal,
         expiraEm:     parsed.data.expiraEm ? new Date(parsed.data.expiraEm) : null,
+        publicarEm:   parsed.data.publicarEm ? new Date(parsed.data.publicarEm) : null,
         condominioId: session.condominioId,
         autorId:      session.sub,
       },
       include: { autor: autorSelect },
     })
+
+    await notificarComunicado(comunicado)
+    if (comunicado.publicado) {
+      await registrarAuditoria(session, "PUBLICAR", "Comunicado", comunicado.id,
+        comunicado.publicarEm && comunicado.publicarEm > new Date()
+          ? `Agendou o comunicado "${comunicado.titulo}" para ${comunicado.publicarEm.toLocaleString("pt-BR")}`
+          : `Publicou o comunicado "${comunicado.titulo}"`)
+    }
 
     return NextResponse.json(comunicado, { status: 201 })
   } catch (error) {
