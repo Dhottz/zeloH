@@ -13,6 +13,7 @@ const PUBLIC_ROUTES = [
   "/api/auth/register",
   "/api/auth/primeiro-acesso",
   "/api/webhooks/vistto",
+  "/api/cron",
 ]
 
 // Rotas exclusivas de moradores
