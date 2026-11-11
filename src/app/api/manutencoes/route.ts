@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    if (session.role === "ZELADOR" || session.role === "PORTEIRO") {
+    if (session.role === "ZELADOR") {
       await criarNotificacaoZelador({
         condominioId: session.condominioId,
         titulo:       `Nova manutenção registrada`,
