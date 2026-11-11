@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/arquivar-chamados",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}

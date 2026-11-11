@@ -1,0 +1,354 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  SINDICO
+  ZELADOR
+  PORTEIRO
+  MORADOR
+  ADMIN
+}
+
+enum ChamadoStatus {
+  ABERTO
+  EM_ANDAMENTO
+  AGUARDANDO_PRESTADOR
+  CONCLUIDO
+  CANCELADO
+  ARQUIVADO
+}
+
+enum ChamadoPriority {
+  BAIXA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+enum MensagemAutor {
+  MORADOR
+  ASSISTENTE
+  SINDICO
+}
+
+enum ComunicadoTipo {
+  GERAL
+  URGENTE
+  AVISO
+  EVENTO
+}
+
+enum ReservaStatus {
+  PENDENTE
+  CONFIRMADA
+  CANCELADA
+}
+
+enum ComunicadoDestinatario {
+  TODOS
+  BLOCOS
+  UNIDADES
+}
+
+// ─── Condomínio ───────────────────────────────────────────────────────────────
+
+model Condominio {
+  id             String   @id @default(uuid())
+  nome           String
+  cnpj           String?  @unique
+  endereco       String?
+  cidade         String?
+  estado         String?
+  cep            String?
+  email          String?
+  telefone       String?
+  // Vínculo com VISTTO
+  visttoClientId String?  @unique
+  // Base de conhecimento da Zia (texto do regimento)
+  regimento      String?  @db.Text
+  // Blocos do condomínio
+  blocos         String[] @default([])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  usuarios      Usuario[]
+  chamados      Chamado[]
+  conversas     Conversa[]
+  documentos    Documento[]
+  manutencoes   ManutencaoHistorico[]
+  comunicados   Comunicado[]
+  areas         AreaComum[]
+  reservas      Reserva[]
+  prestadores   Prestador[]
+  notificacoes  Notificacao[]
+
+  @@index([cnpj])
+  @@index([visttoClientId])
+}
+
+// ─── Prestadores de Serviço ───────────────────────────────────────────────────
+
+model Prestador {
+  id            String   @id @default(uuid())
+  condominioId  String
+  nome          String
+  especialidade String?
+  cnpj          String?
+  cpf           String?
+  telefone      String?
+  email         String?
+  observacoes   String?  @db.Text
+  ativo         Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  condominio Condominio @relation(fields: [condominioId], references: [id])
+
+  @@index([condominioId])
+  @@index([condominioId, ativo])
+}
+
+// ─── Usuário ──────────────────────────────────────────────────────────────────
+
+model Usuario {
+  id           String   @id @default(uuid())
+  nome         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(MORADOR)
+  isActive     Boolean  @default(true)
+  condominioId    String
+  unidade         String?
+  bloco           String?
+  telefone        String?
+  primeiroAcesso  Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  condominio   Condominio   @relation(fields: [condominioId], references: [id])
+  chamados     Chamado[]
+  mensagens    Mensagem[]
+  comunicados  Comunicado[]
+  reservas     Reserva[]
+
+  @@index([condominioId])
+  @@index([email])
+}
+
+// ─── Chamado ──────────────────────────────────────────────────────────────────
+
+model Chamado {
+  id           String          @id @default(uuid())
+  condominioId String
+  moradorId    String
+  titulo       String
+  descricao    String?
+  status       ChamadoStatus   @default(ABERTO)
+  prioridade   ChamadoPriority @default(MEDIA)
+  // OS vinculada no VISTTO quando o síndico encaminha
+  visttoOsId   String?
+  visttoOsCod  String?
+  resolvidoEm  DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  condominio Condominio @relation(fields: [condominioId], references: [id])
+  morador    Usuario    @relation(fields: [moradorId], references: [id])
+  conversa   Conversa?
+
+  @@index([condominioId])
+  @@index([moradorId])
+  @@index([status])
+  @@index([visttoOsId])
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+
+model Conversa {
+  id           String   @id @default(uuid())
+  condominioId String
+  chamadoId    String?  @unique
+  titulo       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  condominio Condominio @relation(fields: [condominioId], references: [id])
+  chamado    Chamado?   @relation(fields: [chamadoId], references: [id])
+  mensagens  Mensagem[]
+
+  @@index([condominioId])
+}
+
+model Mensagem {
+  id         String        @id @default(uuid())
+  conversaId String
+  autorId    String?
+  autorTipo  MensagemAutor
+  conteudo   String
+  createdAt  DateTime      @default(now())
+
+  conversa Conversa  @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  autor    Usuario?  @relation(fields: [autorId], references: [id], onDelete: SetNull)
+
+  @@index([conversaId])
+  @@index([conversaId, createdAt])
+}
+
+// ─── Manutenção (histórico sincronizado do VISTTO) ────────────────────────────
+
+model ManutencaoHistorico {
+  id             String   @id @default(uuid())
+  condominioId   String
+  visttoOsId     String?  @unique
+  visttoOsCod    String?
+  titulo         String
+  descricao      String?
+  status         String
+  prioridade     String?
+  prestadorNome  String?
+  prestadorCnpj  String?
+  valor          Decimal?
+  agendadoEm     DateTime?
+  concluidoEm    DateTime?
+  empresaNome    String?
+  observacoes    String?  @db.Text
+  local          String?
+  origem         String   @default("VISTTO")
+  registradoPor  String?
+  visivelParaMoradores Boolean  @default(false)
+  syncedAt       DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  condominio Condominio @relation(fields: [condominioId], references: [id])
+
+  @@index([condominioId])
+  @@index([visttoOsId])
+  @@index([prestadorCnpj])
+}
+
+// ─── Comunicados ─────────────────────────────────────────────────────────────
+
+model Comunicado {
+  id           String         @id @default(uuid())
+  condominioId String
+  autorId      String
+  titulo       String
+  conteudo     String
+  tipo         ComunicadoTipo @default(GERAL)
+  publicado    Boolean        @default(false)
+  fixado       Boolean        @default(false)
+  expiraEm     DateTime?
+  destinatario ComunicadoDestinatario @default(TODOS)
+  blocos       String[]
+  unidades     String[]
+  arquivado    Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  condominio Condominio @relation(fields: [condominioId], references: [id])
+  autor      Usuario    @relation(fields: [autorId], references: [id])
+
+  @@index([condominioId])
+  @@index([condominioId, publicado])
+  @@index([condominioId, tipo])
+  @@index([condominioId, arquivado])
+}
+
+// ─── Reservas ────────────────────────────────────────────────────────────────
+
+model AreaComum {
+  id                 String   @id @default(uuid())
+  condominioId       String
+  nome               String
+  descricao          String?
+  capacidade         Int?
+  ativa              Boolean  @default(true)
+  // Regras de uso
+  horarioAbertura    String   @default("08:00")
+  horarioFechamento  String   @default("22:00")
+  maxReservasPorDia  Int?     // null = sem limite
+  duracaoMaxMinutos  Int?     // null = sem limite
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  condominio Condominio @relation(fields: [condominioId], references: [id])
+  reservas   Reserva[]
+
+  @@index([condominioId])
+}
+
+model Reserva {
+  id           String        @id @default(uuid())
+  condominioId String
+  areaId       String
+  moradorId    String
+  data         DateTime
+  horaInicio   String
+  horaFim      String
+  status       ReservaStatus @default(PENDENTE)
+  observacao   String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  condominio Condominio @relation(fields: [condominioId], references: [id])
+  area       AreaComum  @relation(fields: [areaId], references: [id])
+  morador    Usuario    @relation(fields: [moradorId], references: [id])
+
+  @@index([condominioId])
+  @@index([areaId, data])
+  @@index([moradorId])
+}
+
+// ─── Notificações (ações do zelador → síndico) ───────────────────────────────
+
+model Notificacao {
+  id           String   @id @default(uuid())
+  condominioId String
+  titulo       String
+  descricao    String?
+  link         String   @default("/dashboard")
+  autorNome    String?
+  criadaEm     DateTime @default(now())
+
+  condominio Condominio @relation(fields: [condominioId], references: [id], onDelete: Cascade)
+
+  @@index([condominioId])
+  @@index([condominioId, criadaEm])
+}
+
+// ─── Documentos ───────────────────────────────────────────────────────────────
+
+enum DocumentoTipo {
+  CONTRATO
+  ATA
+  REGULAMENTO
+  PROCURACAO
+  ENTREGA
+  OUTRO
+}
+
+model Documento {
+  id           String        @id @default(uuid())
+  condominioId String
+  nome         String
+  tipo         DocumentoTipo @default(OUTRO)
+  tamanho      Int?
+  conteudo     String?       @db.Text
+  uploadadoPor String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  condominio Condominio @relation(fields: [condominioId], references: [id], onDelete: Cascade)
+
+  @@index([condominioId])
+  @@index([tipo])
+}

@@ -1,0 +1,43 @@
+{
+  "name": "ZeloH — Gestão Condominial",
+  "short_name": "ZeloH",
+  "description": "Gerencie seu condomínio com inteligência. Chat com Zia, reservas, ocorrências e mais.",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#faf7f5",
+  "theme_color": "#18181b",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Chat com Zia",
+      "short_name": "Zia",
+      "url": "/morador/zia",
+      "icons": [{ "src": "/icon.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "Minhas Reservas",
+      "short_name": "Reservas",
+      "url": "/morador/reservas",
+      "icons": [{ "src": "/icon.png", "sizes": "512x512" }]
+    }
+  ]
+}

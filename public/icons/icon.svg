@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="112" fill="#18181b"/>
+  <!-- ZE / LO stacked text mark -->
+  <text x="256" y="220" font-family="system-ui, -apple-system, sans-serif" font-size="130" font-weight="800" fill="white" text-anchor="middle" dominant-baseline="middle">ZE</text>
+  <text x="256" y="360" font-family="system-ui, -apple-system, sans-serif" font-size="130" font-weight="800" fill="#a1a1aa" text-anchor="middle" dominant-baseline="middle">LO</text>
+</svg>
