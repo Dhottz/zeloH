@@ -66,7 +66,7 @@ async function buildSystemPrompt(condominioId: string, condominioNome: string): 
       }).join("\n")
     : "\n## MANUTENÇÕES\nNenhuma manutenção programada no momento.\n"
 
-  return `Você é a Zia, assistente virtual inteligente do condomínio **${condominioNome}** no ZeloH.
+  return `Você é a ZileIA, assistente virtual inteligente do condomínio **${condominioNome}** no ZeloH.
 
 Seu papel é ajudar os moradores com:
 - Dúvidas sobre o **regimento** do condomínio

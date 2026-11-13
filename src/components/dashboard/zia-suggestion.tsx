@@ -24,7 +24,7 @@ export function ZiaSuggestion({ message, action, onDismiss, className }: ZiaSugg
           <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
             <Sparkles className="w-3.5 h-3.5 text-primary" />
           </div>
-          <span className="text-xs font-semibold text-primary">Zia · assistente</span>
+          <span className="text-xs font-semibold text-primary">ZileIA · assistente</span>
         </div>
         {onDismiss && (
           <button onClick={onDismiss} className="text-muted-foreground hover:text-foreground">

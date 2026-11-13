@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { anthropic, ZIA_MODEL, extrairTexto } from "@/services/ai/assistant"
 
-const SYSTEM_PROMPT = `Você é a Zia, assistente virtual do condomínio no ZeloH.
+const SYSTEM_PROMPT = `Você é a ZileIA, assistente virtual do condomínio no ZeloH.
 Sua função é atender moradores com cordialidade, coletar informações sobre problemas e estruturar chamados.
 
 Quando um morador reportar um problema:

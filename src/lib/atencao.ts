@@ -22,7 +22,7 @@ const prazo = (d: Date) => {
 
 /**
  * Tudo o que exige uma ação do síndico hoje, do mais grave para o menos grave.
- * Usado no dashboard, no resumo diário e no contexto da Zia.
+ * Usado no dashboard, no resumo diário e no contexto da ZileIA.
  */
 export async function itensDeAtencao(condominioId: string): Promise<ItemAtencao[]> {
   const agora = new Date()

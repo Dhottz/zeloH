@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   })
 }
 
-// POST — envia PDF/imagem, extrai o texto (para a Zia) e guarda o original. Com "grupoId", cria nova versão.
+// POST — envia PDF/imagem, extrai o texto (para a ZileIA) e guarda o original. Com "grupoId", cria nova versão.
 export async function POST(req: NextRequest) {
   const session = await getSession()
   if (!session) return NextResponse.json({ message: "Não autenticado" }, { status: 401 })
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
 
   const arrayBuffer = await file.arrayBuffer()
 
-  // Extrai texto do PDF (base de conhecimento da Zia)
+  // Extrai texto do PDF (base de conhecimento da ZileIA)
   let conteudo = ""
   if (ehPdf) {
     try {

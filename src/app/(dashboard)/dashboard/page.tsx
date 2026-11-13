@@ -179,7 +179,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Pendências + Zia */}
+      {/* Pendências + ZileIA */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <PrecisaAtencao itens={data?.atencao ?? []} loading={loading} />
@@ -190,7 +190,7 @@ export default function DashboardPage() {
               ? `Hoje o mais importante é: ${data.atencao[0].titulo.toLowerCase()}. Posso te ajudar a resolver ou redigir um comunicado.`
               : "Tudo em dia por aqui. Quer que eu prepare o resumo do mês para a próxima assembleia?"
           }
-          action={{ label: "Falar com a Zia", onClick: () => window.location.href = "/zia" }}
+          action={{ label: "Falar com a ZileIA", onClick: () => window.location.href = "/zia" }}
         />
       </div>
 

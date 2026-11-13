@@ -64,7 +64,7 @@ export default function ZiaChatPage() {
     {
       id: "1",
       role: "assistant",
-      content: `Olá, ${primeiroNome}! Sou a Zia 👋\n\nPosso te ajudar com dúvidas sobre o regimento do condomínio, comunicados ativos, manutenções programadas ou abrir um chamado para algum problema. Em que posso ajudar?`,
+      content: `Olá, ${primeiroNome}! Sou a ZileIA 👋\n\nPosso te ajudar com dúvidas sobre o regimento do condomínio, comunicados ativos, manutenções programadas ou abrir um chamado para algum problema. Em que posso ajudar?`,
     },
   ])
   const [input, setInput]               = useState("")
@@ -168,7 +168,7 @@ export default function ZiaChatPage() {
             <Sparkles className="w-4.5 h-4.5 text-primary" />
           </div>
           <div>
-            <h1 className="text-base font-bold font-heading">Zia</h1>
+            <h1 className="text-base font-bold font-heading">ZileIA</h1>
             <div className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
               <span className="text-[11px] text-muted-foreground">Assistente do condomínio</span>
@@ -266,7 +266,7 @@ export default function ZiaChatPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar() } }}
-              placeholder="Pergunte à Zia..."
+              placeholder="Pergunte à ZileIA..."
               disabled={loading}
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />

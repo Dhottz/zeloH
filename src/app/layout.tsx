@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     default: "ZeloH — Gestão Condominial",
     template: "%s | ZeloH",
   },
-  description: "Centralize a operação do condomínio com assistente Zia integrada.",
+  description: "Centralize a operação do condomínio com assistente ZileIA integrada.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

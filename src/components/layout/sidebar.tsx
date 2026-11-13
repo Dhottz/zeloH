@@ -64,7 +64,7 @@ const SECOES: { titulo?: string; itens: NavItem[] }[] = [
   {
     titulo: "Administração",
     itens: [
-      { href: "/zia",           label: "Zia",           icon: Sparkles,   roles: GESTORES, modulo: "zia", highlight: true },
+      { href: "/zia",           label: "ZileIA",           icon: Sparkles,   roles: GESTORES, modulo: "zia", highlight: true },
       { href: "/auditoria",     label: "Auditoria",     icon: History,    roles: ["SINDICO", "ADMIN", "CONSELHO"], modulo: "auditoria" },
       { href: "/configuracoes", label: "Configurações", icon: Settings,   roles: GESTORES },
     ],

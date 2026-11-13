@@ -4,7 +4,7 @@ export const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
-/** Modelo da Zia para o painel do síndico (respostas mais elaboradas). */
+/** Modelo da ZileIA para o painel do síndico (respostas mais elaboradas). */
 export const ZIA_MODEL = "claude-sonnet-5-5"
 
 /**

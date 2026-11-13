@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/use-auth"
 const NAV_ITEMS = [
   { href: "/morador",             label: "Início",      icon: Home },
   { href: "/morador/comunicados", label: "Comunicados", icon: Megaphone },
-  { href: "/morador/zia",         label: "Zia",         icon: Sparkles,   special: true },
+  { href: "/morador/zia",         label: "ZileIA",         icon: Sparkles,   special: true },
   { href: "/morador/ocorrencias", label: "Ocorrências", icon: AlertCircle },
   { href: "/morador/reservas",    label: "Reservas",    icon: CalendarClock },
 ]

@@ -113,7 +113,7 @@ model Condominio {
   telefone       String?
   // Vínculo com VISTTO
   visttoClientId String?  @unique
-  // Base de conhecimento da Zia (texto do regimento)
+  // Base de conhecimento da ZileIA (texto do regimento)
   regimento      String?  @db.Text
   // Blocos do condomínio
   blocos         String[] @default([])

@@ -203,7 +203,7 @@ export default function ConfiguracoesPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ regimento: regimento || null }),
       })
-      if (res.ok) { setRegimentoOriginal(regimento); showFeedback("ok", "Regimento salvo! A Zia já pode usar esse conteúdo.") }
+      if (res.ok) { setRegimentoOriginal(regimento); showFeedback("ok", "Regimento salvo! A ZileIA já pode usar esse conteúdo.") }
       else { const json = await res.json(); showFeedback("erro", json.message ?? "Erro ao salvar.") }
     } catch { showFeedback("erro", "Erro de conexão.") }
     finally  { setSavingReg(false) }
@@ -458,14 +458,14 @@ export default function ConfiguracoesPage() {
               </Card>
             </div>{/* fim coluna esquerda */}
 
-            {/* Coluna direita — Zia */}
+            {/* Coluna direita — ZileIA */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Sparkles className="h-4 w-4 text-primary" /> Base de Conhecimento da Zia
+                  <Sparkles className="h-4 w-4 text-primary" /> Base de Conhecimento da ZileIA
                 </CardTitle>
                 <CardDescription>
-                  O regimento aqui cadastrado será usado pela Zia para responder dúvidas dos moradores no app.
+                  O regimento aqui cadastrado será usado pela ZileIA para responder dúvidas dos moradores no app.
                   Cole o texto diretamente ou faça upload de um PDF.
                 </CardDescription>
               </CardHeader>
@@ -508,7 +508,7 @@ export default function ConfiguracoesPage() {
                     id="regimento"
                     value={regimento}
                     onChange={e => setRegimento(e.target.value)}
-                    placeholder="Cole aqui o regimento interno do condomínio. A Zia usará este texto para responder perguntas dos moradores."
+                    placeholder="Cole aqui o regimento interno do condomínio. A ZileIA usará este texto para responder perguntas dos moradores."
                     rows={20}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 min-h-[200px]"
                   />
@@ -545,7 +545,7 @@ export default function ConfiguracoesPage() {
                   <FilePlus className="h-4 w-4 text-primary" /> Adicionar Documento
                 </CardTitle>
                 <CardDescription>
-                  Contratos, atas, regulamentos e outros documentos. A Zia pode consultá-los quando o síndico conversar com ela.
+                  Contratos, atas, regulamentos e outros documentos. A ZileIA pode consultá-los quando o síndico conversar com ela.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -660,13 +660,13 @@ export default function ConfiguracoesPage() {
               </CardContent>
             </Card>
 
-            {/* Nota sobre acesso da Zia */}
+            {/* Nota sobre acesso da ZileIA */}
             <div className="flex items-start gap-3 rounded-xl bg-primary/5 border border-primary/20 px-4 py-3">
               <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-medium text-foreground">Como a Zia usa esses documentos</p>
+                <p className="text-sm font-medium text-foreground">Como a ZileIA usa esses documentos</p>
                 <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                  A Zia tem acesso ao conteúdo dos documentos cadastrados aqui, mas <strong>somente quando conversa com o síndico</strong>.
+                  A ZileIA tem acesso ao conteúdo dos documentos cadastrados aqui, mas <strong>somente quando conversa com o síndico</strong>.
                   Moradores não têm acesso a essas informações — eles podem consultar apenas o regimento e os comunicados publicados.
                 </p>
               </div>

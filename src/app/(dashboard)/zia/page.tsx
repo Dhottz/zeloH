@@ -114,7 +114,7 @@ export default function ZiaSindicoPage() {
             <Sparkles className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="font-heading font-semibold text-foreground">Zia</h1>
+            <h1 className="font-heading font-semibold text-foreground">ZileIA</h1>
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
               <span className="text-xs text-muted-foreground">Assistente de gestão · acesso a documentos e contratos</span>
@@ -146,7 +146,7 @@ export default function ZiaSindicoPage() {
                 Olá, {nomeAbreviado}!
               </h2>
               <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
-                Sou a Zia, sua assistente de gestão. Tenho acesso ao regimento, contratos,
+                Sou a ZileIA, sua assistente de gestão. Tenho acesso ao regimento, contratos,
                 comunicados e manutenções do condomínio. Como posso ajudar?
               </p>
             </div>

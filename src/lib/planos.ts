@@ -43,7 +43,7 @@ export const PLANOS: Record<PlanoId, { nome: string; descricao: string; modulos:
     nome: "Completo",
     descricao: "Gestão operacional, financeira e inteligência artificial.",
     modulos: COMPLETO,
-    destaques: ["Tudo do Gestão", "Financeiro: orçado × realizado", "Zia, assistente com IA", "Auditoria de alterações"],
+    destaques: ["Tudo do Gestão", "Financeiro: orçado × realizado", "ZileIA, assistente com IA", "Auditoria de alterações"],
   },
 }
 

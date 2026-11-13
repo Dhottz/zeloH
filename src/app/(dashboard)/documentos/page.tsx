@@ -85,7 +85,7 @@ function Conteudo() {
     setEnviando(false)
     if (!res.ok) { toast.error(data.message ?? "Erro no envio"); return }
     toast.success(upload.grupo ? `Versão ${data.documento.versao} enviada` : "Documento enviado", {
-      description: data.caracteres ? "Texto lido pela Zia — ela já pode responder sobre ele." : undefined,
+      description: data.caracteres ? "Texto lido pela ZileIA — ela já pode responder sobre ele." : undefined,
     })
     setUpload({ aberto: false, grupo: null })
     setArquivo(null)
@@ -114,7 +114,7 @@ function Conteudo() {
 
       <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm flex items-start gap-2">
         <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-        <span>Os PDFs enviados aqui viram base de conhecimento da Zia: ela responde dúvidas citando o regimento, atas e contratos.</span>
+        <span>Os PDFs enviados aqui viram base de conhecimento da ZileIA: ela responde dúvidas citando o regimento, atas e contratos.</span>
       </div>
 
       <div className="flex flex-wrap gap-3 items-center">

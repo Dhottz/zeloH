@@ -1,7 +1,7 @@
 {
   "name": "ZeloH — Gestão Condominial",
   "short_name": "ZeloH",
-  "description": "O centro de operações do seu condomínio: ocorrências, manutenções, encomendas, comunicados e a assistente Zia.",
+  "description": "O centro de operações do seu condomínio: ocorrências, manutenções, encomendas, comunicados e a assistente ZileIA.",
   "id": "/",
   "start_url": "/?origem=app",
   "scope": "/",
@@ -34,8 +34,8 @@
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
-      "name": "Falar com a Zia",
-      "short_name": "Zia",
+      "name": "Falar com a ZileIA",
+      "short_name": "ZileIA",
       "url": "/morador/zia",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }

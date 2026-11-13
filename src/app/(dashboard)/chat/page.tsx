@@ -35,7 +35,7 @@ const mensagensIniciais: Mensagem[] = [
   {
     id: "1",
     role: "assistant",
-    content: "Olá, Marina! Sou a Zia, sua assistente aqui no ZeloH. Posso abrir solicitações, reservar áreas ou tirar dúvidas sobre o condomínio.",
+    content: "Olá, Marina! Sou a ZileIA, sua assistente aqui no ZeloH. Posso abrir solicitações, reservar áreas ou tirar dúvidas sobre o condomínio.",
     timestamp: new Date(),
   },
 ]
@@ -112,7 +112,7 @@ export default function ChatPage() {
       {/* Chat */}
       <div className="flex-1 flex flex-col min-h-0">
         <div className="mb-4">
-          <h1 className="text-2xl font-heading font-bold">Zia</h1>
+          <h1 className="text-2xl font-heading font-bold">ZileIA</h1>
           <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
             Online · atende pedidos em linguagem natural
@@ -245,7 +245,7 @@ export default function ChatPage() {
           <Card className="p-4 flex flex-col items-center justify-center gap-2 text-center min-h-[160px] border-dashed">
             <Sparkles className="w-6 h-6 text-muted-foreground/40" />
             <p className="text-xs text-muted-foreground">
-              Quando um morador descrever um problema, a Zia estrutura automaticamente o chamado aqui.
+              Quando um morador descrever um problema, a ZileIA estrutura automaticamente o chamado aqui.
             </p>
           </Card>
         )}

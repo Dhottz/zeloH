@@ -145,7 +145,7 @@ async function buildSystemPrompt(condominioId: string, condominioNome: string): 
 
   const chamadosSection = `\n## CHAMADOS ABERTOS\n${chamados} chamado(s) aguardando atenção.\n`
 
-  return `Você é a Zia, assistente inteligente de gestão condominial do **${condominioNome}** no ZeloH.
+  return `Você é a ZileIA, assistente inteligente de gestão condominial do **${condominioNome}** no ZeloH.
 
 Você está conversando com o **síndico** do condomínio. Seu papel é ser um parceiro estratégico:
 - Responder perguntas sobre o **regimento** e os **documentos/contratos** cadastrados
