@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useSyncExternalStore } from "react"
 import Link from "next/link"
 import { AlertCircle, CalendarClock, Package, Wrench, ArrowRight, AlertTriangle, Info, CheckCircle2, Bell, Wallet } from "lucide-react"
 import { MetricCard } from "@/components/dashboard/metric-card"
@@ -100,10 +100,25 @@ function PrecisaAtencao({ itens, loading }: { itens: DashboardData["atencao"]; l
   )
 }
 
+const semInscricao = () => () => {}
+
+function saudacaoPorHorario(data: Date) {
+  const hora = data.getHours()
+  if (hora >= 5 && hora < 12) return "Bom dia"
+  if (hora >= 12 && hora < 18) return "Boa tarde"
+  return "Boa noite"
+}
+
 export default function DashboardPage() {
   const { usuario } = useAuth()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  // Calculada no navegador (horário local do usuário); no servidor (UTC) usa "Olá".
+  const saudacao = useSyncExternalStore(
+    semInscricao,
+    () => saudacaoPorHorario(new Date()),
+    () => "Olá",
+  )
 
   useEffect(() => {
     fetch("/api/dashboard/summary")
@@ -122,7 +137,7 @@ export default function DashboardPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-heading font-bold text-foreground">
-            Bom dia, {primeiroNome}
+            {saudacao}, {primeiroNome}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Visão geral do {usuario?.condominio?.nome ?? "seu condomínio"} —{" "}
